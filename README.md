@@ -12,21 +12,27 @@ Este script automatiza a extração e tradução de legendas de arquivos `.mkv`.
 
 ### ✨ Funcionalidades
 - **Extração Automática:** Busca faixas de legenda dentro do container MKV.
+- **Múltiplos Arquivos:** Suporta o processamento de vários vídeos em sequência ou o uso de wildcards (ex: `*.mkv`).
 - **Conversão de Codec:** Transforma legendas ASS/SSA/PGS em SRT via FFmpeg.
 - **Tradução Inteligente:** Traduz diálogos mantendo tags de formatação (HTML) e timecodes.
 - **Tradução em Lote:** Otimizado para evitar bloqueios de API.
 
 ### 🚀 Início Rápido
 1. **Instale as dependências do sistema:** MKVToolNix e FFmpeg.
-2. **Instale a biblioteca Python:**
+2. **Configure os caminhos (Opcional):** Se as ferramentas não estiverem no seu PATH global, edite as variáveis no topo do script (`MKVTOOLNIX_DIR` e `FFMPEG_BIN`).
+3. **Instale a biblioteca Python:**
    ```bash
    pip install -r requirements.txt
    ```
-### 🚀 Início Rápido
-1. **Instale as dependências do sistema:** MKVToolNix e FFmpeg.
-2. **Configure os caminhos (Opcional):** Se as ferramentas não estiverem no seu PATH global, edite as variáveis no topo do script para apontar para as pastas corretas (veja a seção [Configuração de Caminhos](#configuração-de-caminhos)).
-3. **Instale a biblioteca Python:**
-...
+4. **Execute:**
+   ```bash
+   # Traduzir um arquivo único
+   python translate_subtitles_google_win.py seu_video.mkv
+
+   # Traduzir todos os MKVs da pasta
+   python translate_subtitles_google_win.py *.mkv
+   ```
+
 ---
 
 <a name="english"></a>
@@ -37,16 +43,27 @@ This script automates the extraction and translation of subtitles from `.mkv` fi
 
 ### ✨ Features
 - **Automatic Extraction:** Scans for subtitle tracks within the MKV container.
+- **Batch Processing:** Supports multiple files or wildcards (e.g., `*.mkv`) to process several videos in sequence.
 - **Codec Conversion:** Converts ASS/SSA/PGS subtitles to SRT using FFmpeg.
 - **Smart Translation:** Translates dialogues while preserving formatting tags (HTML) and timecodes.
-- **Customizable Tool Paths:** Easy configuration for environments where tools are not in the system PATH.
 - **Batch Translation:** Optimized to prevent API rate limiting.
 
 ### 🚀 Quick Start
 1. **Install system dependencies:** MKVToolNix and FFmpeg.
-2. **Configure paths (Optional):** If tools are not in your global PATH, edit the path variables at the top of the script (see [Path Configuration](#path-configuration) section).
+2. **Configure paths (Optional):** If tools are not in your global PATH, edit the path variables at the top of the script (`MKVTOOLNIX_DIR` and `FFMPEG_BIN`).
 3. **Install the Python library:**
-...
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. **Run:**
+   ```bash
+   # Translate a single file
+   python translate_subtitles_google_win.py your_video.mkv
+
+   # Translate all MKVs in the folder
+   python translate_subtitles_google_win.py *.mkv
+   ```
+
 <a name="configuração-de-caminhos"></a>
 ### ⚙️ Configuração de Caminhos / Path Configuration
 
@@ -58,10 +75,3 @@ If you get a "Tool not found" error, edit the script:
 MKVTOOLNIX_DIR = r"C:\Program Files\MKVToolNix"
 FFMPEG_BIN     = r"C:\ffmpeg\bin\ffmpeg.exe"
 ```
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Run:**
-   ```bash
-   python translate_subtitles_google.py your_video.mkv
-   ```
