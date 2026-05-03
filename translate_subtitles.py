@@ -161,12 +161,23 @@ def main():
             convert_subtitle(raw_path, srt_internal)
             with open(srt_internal, encoding="utf-8", errors="replace") as f: srt_text = f.read()
 
-        entries = parse_srt(srt_text)
-        if not ANTHROPIC_API_KEY: sys.exit(1)
-        translated = translate_entries(entries, source_lang=args.source_lang)
-        out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
-        with open(out_path, "w", encoding="utf-8") as f: f.write(build_srt(translated))
-        print(f"✅ Concluído: {out_path}")
+            entries = parse_srt(srt_text)
+            if not ANTHROPIC_API_KEY: sys.exit(1)
+            translated_list = translate_entries(entries, source_lang=args.source_lang)
+            
+            translated_srt = os.path.join(tmp, "translated.srt")
+            with open(translated_srt, "w", encoding="utf-8") as f:
+                f.write(build_srt(translated_list))
+            
+            final_ext = f".pt.{args.format}"
+            out_path = args.output or Path(mkv_path).with_suffix(final_ext)
+            
+            if args.format == "ass":
+                convert_subtitle(translated_srt, str(out_path))
+            else:
+                shutil.copy(translated_srt, out_path)
+            
+            print(f"✅ Concluído ({args.format.upper()}): {out_path}")
 
 if __name__ == "__main__":
     main()

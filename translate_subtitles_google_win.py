@@ -103,7 +103,7 @@ def main():
     parser = argparse.ArgumentParser(description="Tradutor MKV (Versão Windows Otimizada)")
     parser.add_argument("mkv", nargs='+', help="Arquivo(s) .mkv ou padrão (ex: *.mkv)")
     parser.add_argument("--lang", default="eng", help="Idioma da faixa a extrair (padrão: eng)")
-    parser.add_argument("--format", choices=["srt", "ass"], default="srt", help="Formato de saída para extração (padrão: srt)")
+    parser.add_argument("--format", choices=["srt", "ass"], default="srt", help="Formato de saída (padrão: srt)")
     parser.add_argument("--source-lang", default="auto", help="Origem da tradução (ex: en, ja)")
     parser.add_argument("--output", default=None, help="Saída personalizada")
     parser.add_argument("--list-tracks", action="store_true", help="Lista faixas e sai")
@@ -144,7 +144,7 @@ def main():
             print(f"  Extraindo legenda ({track['codec']})...")
             extract_subtitle(mkv_path, track["id"], raw_path)
             
-            # Se for APENAS EXTRAÇÃO, respeita o formato solicitado (--format)
+            # Se for APENAS EXTRAÇÃO
             if args.extract_only:
                 final_ext = f".{args.format}"
                 dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
@@ -154,27 +154,40 @@ def main():
                     print(f"\n[ERRO] Falha ao converter para {args.format.upper()}")
                 continue
 
-            # Se for traduzir, precisamos converter para SRT primeiro (nosso parser usa SRT)
+            # Para tradução, normalizamos para SRT
             srt_internal = os.path.join(tmp, "internal.srt")
             if not convert_subtitle(raw_path, srt_internal):
-                print(f"[ERRO] Não foi possível normalizar a legenda para tradução.")
+                print(f"[ERRO] Falha ao normalizar legenda.")
                 continue
 
             with open(srt_internal, encoding="utf-8", errors="replace") as f: 
                 srt_text = f.read()
 
-        entries = parse_srt(srt_text)
-        if not entries: continue
+            entries = parse_srt(srt_text)
+            if not entries: continue
 
-        print(f"  Blocos encontrados: {len(entries)}")
-        translated = translate_entries(entries, source_lang=args.source_lang)
-        
-        # Salva o resultado traduzido (sempre SRT por enquanto)
-        out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
-        with open(out_path, "w", encoding="utf-8") as f: 
-            f.write(build_srt(translated))
-        
-        print(f"\n✅ Tradução concluída: {out_path}")
+            print(f"  Blocos encontrados: {len(entries)}")
+            translated_entries_list = translate_entries(entries, source_lang=args.source_lang)
+            
+            # Reconstrói em SRT temporário
+            translated_srt = os.path.join(tmp, "translated.srt")
+            with open(translated_srt, "w", encoding="utf-8") as f:
+                f.write(build_srt(translated_entries_list))
+            
+            # Define caminho final baseado no formato solicitado
+            final_ext = f".pt.{args.format}"
+            out_path = args.output or Path(mkv_path).with_suffix(final_ext)
+            
+            # Se pediu ASS, converte o SRT traduzido para ASS
+            if args.format == "ass":
+                if convert_subtitle(translated_srt, str(out_path)):
+                    print(f"\n✅ Tradução concluída no formato ASS: {out_path}")
+                else:
+                    print(f"\n[ERRO] Falha ao converter tradução para ASS.")
+            else:
+                # Se for SRT, apenas move o arquivo
+                shutil.copy(translated_srt, out_path)
+                print(f"\n✅ Tradução concluída no formato SRT: {out_path}")
 
 if __name__ == "__main__":
     main()

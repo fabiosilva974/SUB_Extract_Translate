@@ -87,7 +87,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extrai e traduz legendas de MKV para português via Google Translate.")
     parser.add_argument("mkv", nargs='+', help="Arquivo(s) .mkv ou padrão (ex: *.mkv)")
     parser.add_argument("--lang", default="eng", help="Idioma da faixa a extrair (padrão: eng)")
-    parser.add_argument("--format", choices=["srt", "ass"], default="srt", help="Formato de saída para extração (padrão: srt)")
+    parser.add_argument("--format", choices=["srt", "ass"], default="srt", help="Formato de saída (padrão: srt)")
     parser.add_argument("--source-lang", default="auto", help="Origem da tradução (ex: en, ja)")
     parser.add_argument("--output", default=None, help="Saída personalizada")
     parser.add_argument("--list-tracks", action="store_true", help="Lista faixas e sai")
@@ -105,16 +105,13 @@ def main():
 
     for mkv_path in mkv_files:
         print(f"\n{'='*60}\n Processando: {mkv_path}\n{'='*60}")
-        if not Path(mkv_path).exists():
-            print(f"[ERRO] Arquivo não encontrado: {mkv_path}")
-            continue
+        if not Path(mkv_path).exists(): continue
 
         tracks = list_tracks(mkv_path)
         if not tracks: continue
 
         if args.list_tracks:
-            print(f"{'ID':>4}  {'Idioma':<8}  {'Codec':<20}")
-            for t in tracks: print(f"{t['id']:>4}  {t['language']:<8}  {t['codec']:<20}")
+            for t in tracks: print(f"ID={t['id']} lang={t['language']} codec={t['codec']}")
             continue
 
         track = pick_track(tracks, args.lang)
@@ -129,27 +126,34 @@ def main():
             if args.extract_only:
                 final_ext = f".{args.format}"
                 dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
-                if convert_subtitle(raw_path, str(dest_path)):
-                    print(f"\n✅ Extração concluída no formato {args.format.upper()}: {dest_path}")
-                else:
-                    print(f"\n[ERRO] Falha ao converter para {args.format.upper()}")
+                convert_subtitle(raw_path, str(dest_path))
+                print(f"\n✅ Extração concluída: {dest_path}")
                 continue
 
             srt_internal = os.path.join(tmp, "internal.srt")
-            if not convert_subtitle(raw_path, srt_internal):
-                print(f"[ERRO] Falha ao normalizar legenda.")
-                continue
+            if not convert_subtitle(raw_path, srt_internal): continue
 
             with open(srt_internal, encoding="utf-8", errors="replace") as f: srt_text = f.read()
 
-        entries = parse_srt(srt_text)
-        if not entries: continue
+            entries = parse_srt(srt_text)
+            if not entries: continue
 
-        print(f"  Blocos encontrados: {len(entries)}")
-        translated = translate_entries(entries, source_lang=args.source_lang)
-        out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
-        with open(out_path, "w", encoding="utf-8") as f: f.write(build_srt(translated))
-        print(f"\n✅ Concluído: {out_path}")
+            print(f"  Blocos encontrados: {len(entries)}")
+            translated_list = translate_entries(entries, source_lang=args.source_lang)
+            
+            translated_srt = os.path.join(tmp, "translated.srt")
+            with open(translated_srt, "w", encoding="utf-8") as f:
+                f.write(build_srt(translated_list))
+            
+            final_ext = f".pt.{args.format}"
+            out_path = args.output or Path(mkv_path).with_suffix(final_ext)
+            
+            if args.format == "ass":
+                convert_subtitle(translated_srt, str(out_path))
+            else:
+                shutil.copy(translated_srt, out_path)
+            
+            print(f"\n✅ Concluído ({args.format.upper()}): {out_path}")
 
 if __name__ == "__main__":
     main()
