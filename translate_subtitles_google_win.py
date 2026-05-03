@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Importa módulos necessários para sistema, regex, JSON, CLI e processos
+# Importa módulos necessários para sistema, regex, JSON, CLI, processos e manipulação de arquivos
 import os
 import re
 import sys
@@ -8,6 +8,7 @@ import argparse
 import subprocess
 import tempfile
 import glob
+import shutil
 from pathlib import Path
 from deep_translator import GoogleTranslator
 
@@ -27,17 +28,14 @@ BATCH_SIZE = 30
 TARGET_LANG = "pt"
 
 def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
-    # Substitui o nome do comando pelo caminho absoluto se estiver no dicionário TOOLS
     if cmd[0] in TOOLS:
         cmd[0] = TOOLS[cmd[0]]
     return subprocess.run(cmd, capture_output=True, text=True, check=check)
 
 def require_tool(name: str):
-    # Verifica se o arquivo executável existe no caminho configurado
     path = TOOLS.get(name, name)
     if not os.path.exists(path):
         print(f"[ERRO] Ferramenta '{name}' não encontrada em: {path}")
-        print("Verifique os caminhos no topo do script.")
         sys.exit(1)
 
 def list_tracks(mkv_path: str) -> list[dict]:
@@ -106,41 +104,32 @@ def convert_to_srt_if_needed(raw_path: str, codec: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Tradutor MKV (Versão Windows Otimizada)")
-    # Agora aceita um ou mais argumentos (permite *.mkv ser expandido ou passado como lista)
     parser.add_argument("mkv", nargs='+', help="Arquivo(s) .mkv ou padrão (ex: *.mkv)")
-    parser.add_argument("--lang", default="eng", help="Idioma (ex: eng)")
-    parser.add_argument("--source-lang", default="auto", help="Origem (ex: en, ja)")
-    parser.add_argument("--output", default=None, help="Saída .srt")
+    parser.add_argument("--lang", default="eng", help="Idioma da faixa a extrair (padrão: eng)")
+    parser.add_argument("--source-lang", default="auto", help="Origem da tradução (ex: en, ja)")
+    parser.add_argument("--output", default=None, help="Saída .srt (padrão: .pt.srt ou .srt)")
     parser.add_argument("--list-tracks", action="store_true", help="Lista faixas e sai")
+    # Novo parâmetro: apenas extrair
+    parser.add_argument("--extract-only", action="store_true", help="Apenas extrai a legenda original sem traduzir")
     args = parser.parse_args()
 
-    # Expandir wildcards (necessário no Windows CMD que não expande *.mkv automaticamente)
     mkv_files = []
     for pattern in args.mkv:
         matches = glob.glob(pattern)
-        if matches:
-            mkv_files.extend(matches)
-        else:
-            mkv_files.append(pattern) # Mantém original para disparar erro de 'não encontrado' se for o caso
+        mkv_files.extend(matches) if matches else mkv_files.append(pattern)
 
-    # Verifica ferramentas uma única vez
     require_tool("mkvmerge")
     require_tool("mkvextract")
     require_tool("ffmpeg")
 
     for mkv_path in mkv_files:
-        print(f"\n{'='*60}")
-        print(f" Processando: {mkv_path}")
-        print(f"{'='*60}")
-
+        print(f"\n{'='*60}\n Processando: {mkv_path}\n{'='*60}")
         if not Path(mkv_path).exists():
             print(f"[ERRO] Arquivo não encontrado: {mkv_path}")
             continue
 
         tracks = list_tracks(mkv_path)
-        if not tracks:
-            print(f"[AVISO] Nenhuma faixa de legenda encontrada em {mkv_path}")
-            continue
+        if not tracks: continue
 
         if args.list_tracks:
             print(f"{'ID':>4}  {'Idioma':<8}  {'Codec':<20}")
@@ -156,21 +145,22 @@ def main():
             print("  Extraindo legenda…")
             extract_subtitle(mkv_path, track["id"], raw_path)
             srt_path = convert_to_srt_if_needed(raw_path, track["codec"])
+            
+            # Se for apenas extração
+            if args.extract_only:
+                final_ext = ".srt"
+                dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
+                shutil.copy(srt_path, dest_path)
+                print(f"\n✅ Extração concluída (sem tradução): {dest_path}")
+                continue
+
             with open(srt_path, encoding="utf-8", errors="replace") as f: srt_text = f.read()
 
         entries = parse_srt(srt_text)
-        if not entries:
-            print(f"  [ERRO] Não foi possível parsear a legenda de {mkv_path}")
-            continue
+        if not entries: continue
 
         print(f"  Blocos encontrados: {len(entries)}")
         translated = translate_entries(entries, source_lang=args.source_lang)
-        
-        # Se houver múltiplos arquivos, o output fixo --output pode ser problemático.
-        # Se for None, gera o padrão .pt.srt. Se for definido, usará o mesmo nome para todos (sobrescrevendo).
-        if args.output and len(mkv_files) > 1:
-            print(f"  [AVISO] --output definido com múltiplos arquivos. Todos usarão o mesmo nome.")
-        
         out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
         with open(out_path, "w", encoding="utf-8") as f: f.write(build_srt(translated))
         print(f"\n✅ Concluído: {out_path}")

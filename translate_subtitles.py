@@ -5,8 +5,7 @@ translate_subtitles.py
 Extrai legenda de um arquivo .mkv e traduz para português usando a API Claude.
 
 Uso:
-    python translate_subtitles.py *.mkv
-    python translate_subtitles.py video1.mkv video2.mkv --lang eng
+    python translate_subtitles.py *.mkv --extract-only
 """
 
 import os
@@ -17,6 +16,7 @@ import argparse
 import subprocess
 import tempfile
 import glob
+import shutil
 from pathlib import Path
 
 # ── Configuração da API ────────────────────────────────────────────────────────
@@ -209,33 +209,25 @@ def main():
     parser.add_argument("--source-lang", default="inglês", help="Nome do idioma de origem para o prompt")
     parser.add_argument("--output",      default=None,   help="Arquivo de saída .srt")
     parser.add_argument("--list-tracks", action="store_true", help="Lista as faixas de legenda e sai")
+    parser.add_argument("--extract-only", action="store_true", help="Apenas extrai a legenda original sem traduzir")
     args = parser.parse_args()
 
     mkv_files = []
     for pattern in args.mkv:
         matches = glob.glob(pattern)
-        if matches:
-            mkv_files.extend(matches)
-        else:
-            mkv_files.append(pattern)
+        mkv_files.extend(matches) if matches else mkv_files.append(pattern)
 
     require_tool("mkvmerge")
     require_tool("mkvextract")
 
     for mkv_path in mkv_files:
-        print(f"\n{'='*60}")
-        print(f" Processando: {mkv_path}")
-        print(f"{'='*60}")
-
+        print(f"\n{'='*60}\n Processando: {mkv_path}\n{'='*60}")
         if not Path(mkv_path).exists():
             print(f"[ERRO] Arquivo não encontrado: {mkv_path}")
             continue
 
-        # ── listar faixas ────────────────────────────────────────────────────────
         tracks = list_tracks(mkv_path)
-        if not tracks:
-            print(f"[ERRO] Nenhuma faixa encontrada em {mkv_path}")
-            continue
+        if not tracks: continue
 
         if args.list_tracks:
             print(f"{'ID':>4}  {'Idioma':<8}  {'Codec':<20}  {'Nome'}")
@@ -244,40 +236,39 @@ def main():
                 print(f"{t['id']:>4}  {t['language']:<8}  {t['codec']:<20}  {t['name']}")
             continue
 
-        # ── escolher faixa ───────────────────────────────────────────────────────
         track = pick_track(tracks, args.lang)
         if track is None: continue
 
         print(f"\nUsando faixa ID={track['id']}  lang={track['language']}  codec={track['codec']}")
 
-        # ── extrair ──────────────────────────────────────────────────────────────
         with tempfile.TemporaryDirectory() as tmp:
             ext       = "ass" if "ass" in track["codec"].lower() else "srt"
             raw_path  = os.path.join(tmp, f"sub.{ext}")
             print("Extraindo legenda…")
             extract_subtitle(mkv_path, track["id"], raw_path)
             srt_path = convert_to_srt_if_needed(raw_path, track["codec"])
+            
+            if args.extract_only:
+                dest_path = args.output or Path(mkv_path).with_suffix(".srt")
+                shutil.copy(srt_path, dest_path)
+                print(f"\n✅ Extração concluída: {dest_path}")
+                continue
+
             with open(srt_path, encoding="utf-8", errors="replace") as f:
                 srt_text = f.read()
 
-        # ── parsear ──────────────────────────────────────────────────────────────
         entries = parse_srt(srt_text)
         if not entries: continue
 
-        # ── verificar chave ──────────────────────────────────────────────────────
         if not ANTHROPIC_API_KEY:
             print("\n[ERRO] ANTHROPIC_API_KEY não definida.")
             sys.exit(1)
 
-        # ── traduzir ─────────────────────────────────────────────────────────────
         print(f"\nTraduzindo para português…")
         translated = translate_entries(entries, source_lang=args.source_lang)
-
-        # ── salvar ───────────────────────────────────────────────────────────────
         out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
         with open(out_path, "w", encoding="utf-8") as f:
             f.write(build_srt(translated))
-
         print(f"\n✅ Concluído: {out_path}")
 
 

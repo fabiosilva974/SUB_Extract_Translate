@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import tempfile
 import glob
+import shutil
 from pathlib import Path
 from deep_translator import GoogleTranslator
 
@@ -89,36 +90,29 @@ def convert_to_srt_if_needed(raw_path: str, codec: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Extrai e traduz legendas de MKV para português via Google Translate.")
     parser.add_argument("mkv", nargs='+', help="Arquivo(s) .mkv ou padrão (ex: *.mkv)")
-    parser.add_argument("--lang", default="eng", help="Idioma (ex: eng)")
-    parser.add_argument("--source-lang", default="auto", help="Origem (ex: en, ja)")
-    parser.add_argument("--output", default=None, help="Saída .srt")
+    parser.add_argument("--lang", default="eng", help="Idioma da faixa a extrair (padrão: eng)")
+    parser.add_argument("--source-lang", default="auto", help="Origem da tradução (ex: en, ja)")
+    parser.add_argument("--output", default=None, help="Saída .srt (padrão: .pt.srt ou .srt)")
     parser.add_argument("--list-tracks", action="store_true", help="Lista faixas e sai")
+    parser.add_argument("--extract-only", action="store_true", help="Apenas extrai a legenda original sem traduzir")
     args = parser.parse_args()
 
     mkv_files = []
     for pattern in args.mkv:
         matches = glob.glob(pattern)
-        if matches:
-            mkv_files.extend(matches)
-        else:
-            mkv_files.append(pattern)
+        mkv_files.extend(matches) if matches else mkv_files.append(pattern)
 
     require_tool("mkvmerge")
     require_tool("mkvextract")
 
     for mkv_path in mkv_files:
-        print(f"\n{'='*60}")
-        print(f" Processando: {mkv_path}")
-        print(f"{'='*60}")
-
+        print(f"\n{'='*60}\n Processando: {mkv_path}\n{'='*60}")
         if not Path(mkv_path).exists():
             print(f"[ERRO] Arquivo não encontrado: {mkv_path}")
             continue
 
         tracks = list_tracks(mkv_path)
-        if not tracks:
-            print(f"[AVISO] Nenhuma faixa em {mkv_path}")
-            continue
+        if not tracks: continue
 
         if args.list_tracks:
             print(f"{'ID':>4}  {'Idioma':<8}  {'Codec':<20}")
@@ -134,14 +128,20 @@ def main():
             print("  Extraindo legenda…")
             extract_subtitle(mkv_path, track["id"], raw_path)
             srt_path = convert_to_srt_if_needed(raw_path, track["codec"])
+            
+            if args.extract_only:
+                dest_path = args.output or Path(mkv_path).with_suffix(".srt")
+                shutil.copy(srt_path, dest_path)
+                print(f"\n✅ Extração concluída: {dest_path}")
+                continue
+
             with open(srt_path, encoding="utf-8", errors="replace") as f: srt_text = f.read()
 
         entries = parse_srt(srt_text)
         if not entries: continue
 
-        print(f"  Blocos: {len(entries)}")
+        print(f"  Blocos encontrados: {len(entries)}")
         translated = translate_entries(entries, source_lang=args.source_lang)
-        
         out_path = args.output or Path(mkv_path).with_suffix(".pt.srt")
         with open(out_path, "w", encoding="utf-8") as f: f.write(build_srt(translated))
         print(f"\n✅ Concluído: {out_path}")
