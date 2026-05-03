@@ -8,25 +8,28 @@
 ## 🇧🇷 Português
 
 ### Descrição
-Este script automatiza a extração e tradução de legendas de arquivos `.mkv`. Ele identifica as faixas de legenda, extrai a escolhida, converte para o formato desejado (SRT ou ASS) e traduz o conteúdo para português brasileiro.
+Este projeto automatiza a extração e tradução de legendas de arquivos `.mkv`, além de oferecer ferramentas independentes para traduzir arquivos de legenda `.srt` e `.ass`.
 
 ### ✨ Funcionalidades
-- **Suporte a Formatos:** Agora você pode escolher entre os formatos **SRT** ou **ASS** (`--format ass`). O formato ASS é mais completo e preserva melhor as características da legenda original.
-- **Múltiplos Arquivos:** Suporta o processamento de vários vídeos ou arquivos SRT em sequência.
-- **Extração Automática:** Busca faixas de legenda dentro do container MKV.
-- **Tradutor Independente de SRT:** Script `translate_srt_google.py` dedicado a traduzir arquivos `.srt` existentes.
-- **Apenas Extração:** Parâmetro `--extract-only` para extrair a legenda original sem realizar a tradução.
-- **Conversão de Codec:** Transforma legendas complexas (PGS/ASS) em SRT para tradução via FFmpeg.
+- **Suporte a Formatos:** Escolha entre **SRT** ou **ASS** (`--format ass`) na extração.
+- **Tradutores Independentes:** 
+  - `translate_srt_google.py`: Traduz arquivos `.srt` externos.
+  - `translate_ass_google.py`: Traduz arquivos `.ass` mantendo todos os estilos, cores e fontes originais (tradução cirúrgica).
+- **Múltiplos Arquivos:** Suporta o processamento de vários vídeos ou legendas em sequência usando curingas (ex: `*.mkv`, `*.ass`).
+- **Extração Automática:** Busca e isola faixas de legenda dentro do container MKV.
+- **Apenas Extração:** Parâmetro `--extract-only` para isolar a legenda original sem traduzir.
 
 ### 🚀 Início Rápido
-1. **Instale as dependências do sistema:** MKVToolNix e FFmpeg.
-2. **Instale a biblioteca Python:** `pip install -r requirements.txt`
-3. **Execute:**
+1. **Instale as dependências:** MKVToolNix, FFmpeg e `pip install -r requirements.txt`.
+2. **Execute:**
    ```bash
-   # Extrair legenda em formato ASS (mais completo)
-   python translate_subtitles_google_win.py filme.mkv --extract-only --format ass
+   # Traduzir legendas ASS externas mantendo estilos
+   python translate_ass_google.py *.ass
 
-   # Extrair e traduzir (saída em .pt.srt)
+   # Traduzir legendas SRT externas
+   python translate_srt_google.py *.srt
+
+   # Extrair e traduzir de MKVs
    python translate_subtitles_google_win.py *.mkv
    ```
 
@@ -36,24 +39,27 @@ Este script automatiza a extração e tradução de legendas de arquivos `.mkv`.
 ## 🇺🇸 English
 
 ### Description
-This script automates the extraction and translation of subtitles from `.mkv` files. It identifies subtitle tracks, extracts the chosen one, converts it to the desired format (SRT or ASS), and translates the content to Brazilian Portuguese.
+This project automates the extraction and translation of subtitles from `.mkv` files, and provides standalone tools for translating `.srt` and `.ass` subtitle files.
 
 ### ✨ Features
-- **Format Support:** You can now choose between **SRT** or **ASS** formats (`--format ass`). The ASS format is more comprehensive and better preserves the characteristics of the original subtitle.
-- **Batch Processing:** Supports multiple MKV or SRT files in sequence.
-- **Automatic Extraction:** Scans for subtitle tracks within the MKV container.
-- **Standalone SRT Translator:** Dedicated `translate_srt_google.py` script for translating existing `.srt` files.
-- **Extraction Only:** Use `--extract-only` parameter to extract the original subtitle without translating.
-- **Codec Conversion:** Converts complex subtitles (PGS/ASS) to SRT for translation using FFmpeg.
+- **Format Support:** Choose between **SRT** or **ASS** formats (`--format ass`) during extraction.
+- **Standalone Translators:**
+  - `translate_srt_google.py`: Translates external `.srt` files.
+  - `translate_ass_google.py`: Translates external `.ass` files while preserving all original styles, colors, and fonts (surgical translation).
+- **Batch Processing:** Supports multiple videos or subtitles in sequence using wildcards (e.g., `*.mkv`, `*.ass`).
+- **Automatic Extraction:** Scans and isolates subtitle tracks within the MKV container.
+- **Extraction Only:** Use `--extract-only` to isolate the original subtitle without translating.
 
 ### 🚀 Quick Start
-1. **Install system dependencies:** MKVToolNix and FFmpeg.
-2. **Install Python library:** `pip install -r requirements.txt`
-3. **Run:**
+1. **Install dependencies:** MKVToolNix, FFmpeg, and `pip install -r requirements.txt`.
+2. **Run:**
    ```bash
-   # Extract subtitle in ASS format (more comprehensive)
-   python translate_subtitles_google_win.py movie.mkv --extract-only --format ass
+   # Translate external ASS subtitles preserving styles
+   python translate_ass_google.py *.ass
 
-   # Extract and translate (outputs .pt.srt)
+   # Translate external SRT subtitles
+   python translate_srt_google.py *.srt
+
+   # Extract and translate from MKVs
    python translate_subtitles_google_win.py *.mkv
    ```
