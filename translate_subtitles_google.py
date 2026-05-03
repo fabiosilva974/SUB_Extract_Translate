@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import os
 import re
 import sys
@@ -77,22 +78,18 @@ def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[di
         translated_texts.extend(translate_batch(texts[start:end], source_lang))
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
-def convert_to_srt_if_needed(raw_path: str, codec: str) -> str:
-    if "subrip" in codec.lower() or "srt" in codec.lower(): return raw_path
-    srt_path = raw_path + ".srt"
-    result = run(["ffmpeg", "-y", "-i", raw_path, srt_path], check=False)
-    if result.returncode == 0 and Path(srt_path).exists():
-        print(f"  Convertido de {codec} para SRT via ffmpeg.")
-        return srt_path
-    print(f"  [aviso] Não foi possível converter '{codec}' automaticamente.")
-    sys.exit(1)
+def convert_subtitle(input_path: str, output_path: str) -> bool:
+    if input_path == output_path: return True
+    result = run(["ffmpeg", "-y", "-i", input_path, output_path], check=False)
+    return result.returncode == 0 and Path(output_path).exists()
 
 def main():
     parser = argparse.ArgumentParser(description="Extrai e traduz legendas de MKV para português via Google Translate.")
     parser.add_argument("mkv", nargs='+', help="Arquivo(s) .mkv ou padrão (ex: *.mkv)")
     parser.add_argument("--lang", default="eng", help="Idioma da faixa a extrair (padrão: eng)")
+    parser.add_argument("--format", choices=["srt", "ass"], default="srt", help="Formato de saída para extração (padrão: srt)")
     parser.add_argument("--source-lang", default="auto", help="Origem da tradução (ex: en, ja)")
-    parser.add_argument("--output", default=None, help="Saída .srt (padrão: .pt.srt ou .srt)")
+    parser.add_argument("--output", default=None, help="Saída personalizada")
     parser.add_argument("--list-tracks", action="store_true", help="Lista faixas e sai")
     parser.add_argument("--extract-only", action="store_true", help="Apenas extrai a legenda original sem traduzir")
     args = parser.parse_args()
@@ -104,6 +101,7 @@ def main():
 
     require_tool("mkvmerge")
     require_tool("mkvextract")
+    require_tool("ffmpeg")
 
     for mkv_path in mkv_files:
         print(f"\n{'='*60}\n Processando: {mkv_path}\n{'='*60}")
@@ -123,19 +121,26 @@ def main():
         print(f"\nUsando faixa ID={track['id']} ({track['language']}) codec={track['codec']}")
 
         with tempfile.TemporaryDirectory() as tmp:
-            ext = "ass" if "ass" in track["codec"].lower() else "srt"
-            raw_path = os.path.join(tmp, f"sub.{ext}")
-            print("  Extraindo legenda…")
+            orig_ext = "ass" if "ass" in track["codec"].lower() else "srt"
+            raw_path = os.path.join(tmp, f"sub_orig.{orig_ext}")
+            print(f"  Extraindo legenda ({track['codec']})…")
             extract_subtitle(mkv_path, track["id"], raw_path)
-            srt_path = convert_to_srt_if_needed(raw_path, track["codec"])
             
             if args.extract_only:
-                dest_path = args.output or Path(mkv_path).with_suffix(".srt")
-                shutil.copy(srt_path, dest_path)
-                print(f"\n✅ Extração concluída: {dest_path}")
+                final_ext = f".{args.format}"
+                dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
+                if convert_subtitle(raw_path, str(dest_path)):
+                    print(f"\n✅ Extração concluída no formato {args.format.upper()}: {dest_path}")
+                else:
+                    print(f"\n[ERRO] Falha ao converter para {args.format.upper()}")
                 continue
 
-            with open(srt_path, encoding="utf-8", errors="replace") as f: srt_text = f.read()
+            srt_internal = os.path.join(tmp, "internal.srt")
+            if not convert_subtitle(raw_path, srt_internal):
+                print(f"[ERRO] Falha ao normalizar legenda.")
+                continue
+
+            with open(srt_internal, encoding="utf-8", errors="replace") as f: srt_text = f.read()
 
         entries = parse_srt(srt_text)
         if not entries: continue
