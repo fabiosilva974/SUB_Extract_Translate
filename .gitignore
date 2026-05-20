@@ -7,6 +7,8 @@
 *.flv
 *.webm
 *.m4v
+*.mp3
+*.txt
 
 # Legendas
 *.srt
@@ -32,3 +34,4 @@ Thumbs.db
 # Logs e arquivos de saída de tradução
 *.pt.srt
 *.log
+Michael [2026] HDTS v2 YG/
