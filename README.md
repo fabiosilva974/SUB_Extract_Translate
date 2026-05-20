@@ -37,6 +37,10 @@ Este projeto automatiza a extração e tradução de legendas de arquivos `.mkv`
    # Extrair áudio em inglês de um MKV e gerar legenda SRT com IA
    python extract_audio.py video.mkv --lang eng
    python transcribe_audio.py video.mp3 --lang en
+
+   # Extrair áudio em japonês e transcrever/traduzir direto para INGLÊS com Whisper
+   python extract_audio.py video.mkv --lang jpn
+   python transcribe_audio.py video.mp3 --lang ja --task translate
    ```
 
 ---
@@ -74,4 +78,8 @@ This project automates the extraction and translation of subtitles from `.mkv` f
    # Extract english audio from an MKV and generate SRT subtitle using AI
    python extract_audio.py video.mkv --lang eng
    python transcribe_audio.py video.mp3 --lang en
+
+   # Extract Japanese audio and transcribe/translate directly to ENGLISH with Whisper
+   python extract_audio.py video.mkv --lang jpn
+   python transcribe_audio.py video.mp3 --lang ja --task translate
    ```
