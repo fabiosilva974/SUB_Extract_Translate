@@ -19,7 +19,7 @@ TOOLS = {
 def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
     if cmd[0] in TOOLS:
         cmd[0] = TOOLS[cmd[0]]
-    return subprocess.run(cmd, capture_output=True, text=True, check=check)
+    return subprocess.run(cmd, capture_output=True, text=True, check=check, encoding="utf-8", errors="replace")
 
 def list_audio_tracks(mkv_path: str) -> list[dict]:
     result = run(["mkvmerge", "-J", mkv_path])

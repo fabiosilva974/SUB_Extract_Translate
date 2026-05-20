@@ -18,8 +18,6 @@ from deep_translator import GoogleTranslator
 # ── CONFIGURAÇÃO ──────────────────────────────────────────────────────────────
 # Define quantos blocos de legenda serão enviados por vez para o Google
 BATCH_SIZE = 30
-# Define o idioma padrão de destino para a tradução (Português)
-TARGET_LANG = "pt"
 
 # Expressão regular para identificar e separar os componentes de um bloco SRT padrão
 ENTRY_RE = re.compile(
@@ -56,11 +54,11 @@ def build_srt(entries: list[dict]) -> str:
     return "\n".join(blocks)
 
 # Função que realiza a tradução de uma lista de textos de uma só vez
-def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
+def translate_batch(lines: list[str], source_lang: str = "auto", target_lang: str = "pt") -> list[str]:
     # Tenta executar a operação de tradução
     try:
         # Instancia o tradutor configurando origem e o destino padrão
-        translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
+        translator = GoogleTranslator(source=source_lang, target=target_lang)
         # Envia a lista de linhas para o tradutor e aguarda o retorno
         return translator.translate_batch(lines)
     # Em caso de falha (conexão, limite de caracteres, etc)
@@ -71,7 +69,7 @@ def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
         return lines
 
 # Função que gerencia o fluxo de tradução de todas as legendas em pequenos grupos
-def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[dict]:
+def translate_entries(entries: list[dict], source_lang: str = "auto", target_lang: str = "pt") -> list[dict]:
     # Extrai apenas o texto de diálogo de cada objeto da lista original
     texts = [e["text"] for e in entries]
     # Armazena a contagem total de blocos para exibir o progresso
@@ -85,7 +83,7 @@ def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[di
         # Exibe a porcentagem de conclusão no terminal
         print(f"  Traduzindo blocos {start+1}–{end} de {total} ({int(end/total*100)}%)…")
         # Traduz a fatia atual e adiciona os resultados à lista acumuladora
-        translated_texts.extend(translate_batch(texts[start:end], source_lang))
+        translated_texts.extend(translate_batch(texts[start:end], source_lang, target_lang))
     # Reconstrói a lista de dicionários mantendo os metadados mas trocando o texto pelo traduzido
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
@@ -97,6 +95,7 @@ def main():
     parser.add_argument("srt", nargs='+', help="Arquivo(s) .srt ou padrão (ex: *.srt)")
     # Adiciona a opção para definir o idioma de origem (padrão 'auto')
     parser.add_argument("--source-lang", default="auto", help="Idioma de origem (ex: en, ja, es)")
+    parser.add_argument("--target-lang", default="pt", help="Idioma de destino (ex: pt, en, es)")
     # Adiciona a opção para definir um nome fixo para o arquivo de saída
     parser.add_argument("--output", default=None, help="Arquivo de saída (opcional)")
     # Processa os argumentos passados pelo usuário ao chamar o script
@@ -143,7 +142,7 @@ def main():
             print(f"  Blocos encontrados: {len(entries)}")
             
             # Chama a função que coordena a tradução em lote para português
-            translated = translate_entries(entries, source_lang=args.source_lang)
+            translated = translate_entries(entries, source_lang=args.source_lang, target_lang=args.target_lang)
             
             # Define o nome do arquivo final (usa o informado em --output ou gera um automático .pt.srt)
             out_path = args.output or Path(srt_path).with_suffix(".pt.srt")

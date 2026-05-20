@@ -21,7 +21,8 @@ def main():
     parser = argparse.ArgumentParser(description="Transcreve arquivo de áudio para legenda (SRT)")
     parser.add_argument("audio", help="Caminho para o arquivo de áudio (ex: .mp3, .wav)")
     parser.add_argument("--model", default="small", choices=["tiny", "base", "small", "medium", "large"])
-    parser.add_argument("--lang", default="en", help="Idioma do áudio. Padrão: en")
+    parser.add_argument("--lang", default="ja", help="Idioma do áudio. Padrão: en")
+    parser.add_argument("--task", default="transcribe", choices=["transcribe", "translate"], help="Tarefa: 'transcribe' (mantém o idioma original) ou 'translate' (traduz direto para INGLÊS)")
     parser.add_argument("--output", default=None, help="Caminho customizado de saída do arquivo SRT")
     args = parser.parse_args()
 
@@ -40,9 +41,9 @@ def main():
     print(f"\nCarregando modelo Whisper ({args.model})...")
     model = whisper.load_model(args.model)
 
-    print(f"\nIniciando transcrição de áudio para: {input_file.name}")
+    print(f"\nIniciando tarefa '{args.task}' de áudio para: {input_file.name}")
     
-    transcribe_options = {"task": "transcribe"}
+    transcribe_options = {"task": args.task}
     if args.lang:
         transcribe_options["language"] = args.lang
 
