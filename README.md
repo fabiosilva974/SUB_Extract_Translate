@@ -15,6 +15,8 @@ Este projeto automatiza a extração e tradução de legendas de arquivos `.mkv`
 - **Tradutores Independentes:** 
   - `translate_srt_google.py`: Traduz arquivos `.srt` externos.
   - `translate_ass_google.py`: Traduz arquivos `.ass` mantendo todos os estilos, cores e fontes originais (tradução cirúrgica).
+  - `extract_audio.py`: Extrai a faixa de áudio de um vídeo MKV filtrando pelo idioma.
+  - `transcribe_audio.py`: Usa a IA do OpenAI Whisper para transcrever áudio em legendas `.srt`.
 - **Múltiplos Arquivos:** Suporta o processamento de vários vídeos ou legendas em sequência usando curingas (ex: `*.mkv`, `*.ass`).
 - **Extração Automática:** Busca e isola faixas de legenda dentro do container MKV.
 - **Apenas Extração:** Parâmetro `--extract-only` para isolar a legenda original sem traduzir.
@@ -31,6 +33,10 @@ Este projeto automatiza a extração e tradução de legendas de arquivos `.mkv`
 
    # Extrair e traduzir de MKVs
    python translate_subtitles_google_win.py *.mkv
+
+   # Extrair áudio em inglês de um MKV e gerar legenda SRT com IA
+   python extract_audio.py video.mkv --lang eng
+   python transcribe_audio.py video.mp3 --lang en
    ```
 
 ---
@@ -46,6 +52,8 @@ This project automates the extraction and translation of subtitles from `.mkv` f
 - **Standalone Translators:**
   - `translate_srt_google.py`: Translates external `.srt` files.
   - `translate_ass_google.py`: Translates external `.ass` files while preserving all original styles, colors, and fonts (surgical translation).
+  - `extract_audio.py`: Extracts the audio track from an MKV video based on language.
+  - `transcribe_audio.py`: Uses OpenAI Whisper AI to transcribe audio into `.srt` subtitles.
 - **Batch Processing:** Supports multiple videos or subtitles in sequence using wildcards (e.g., `*.mkv`, `*.ass`).
 - **Automatic Extraction:** Scans and isolates subtitle tracks within the MKV container.
 - **Extraction Only:** Use `--extract-only` to isolate the original subtitle without translating.
@@ -62,4 +70,8 @@ This project automates the extraction and translation of subtitles from `.mkv` f
 
    # Extract and translate from MKVs
    python translate_subtitles_google_win.py *.mkv
+
+   # Extract english audio from an MKV and generate SRT subtitle using AI
+   python extract_audio.py video.mkv --lang eng
+   python transcribe_audio.py video.mp3 --lang en
    ```
