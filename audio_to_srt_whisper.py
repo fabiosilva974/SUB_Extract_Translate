@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Script: audio_to_srt_whisper.py
+Objetivo: Utilizar o modelo Whisper (IA da OpenAI) para transcrever o áudio de um
+          arquivo de vídeo diretamente para um arquivo de legenda (.srt).
+"""
 import os
 import sys
 import argparse
@@ -21,6 +26,7 @@ except ImportError:
     sys.exit(1)
 
 def main():
+    # Inicializa o parser para ler argumentos de terminal
     parser = argparse.ArgumentParser(description="Extrai áudio de vídeo e gera legenda (SRT) usando IA (Whisper)")
     parser.add_argument("mkv", help="Caminho para o arquivo de vídeo .mkv")
     parser.add_argument("--model", default="small", choices=["tiny", "base", "small", "medium", "large"], 
@@ -44,20 +50,21 @@ def main():
 
     print(f"\nCarregando modelo Whisper ({args.model})...")
     print("(Na primeira vez que você rodar com esse modelo, ele fará o download do modelo da internet)")
+    # O Whisper carrega o modelo em memória (e faz download caso necessário)
     model = whisper.load_model(args.model)
 
     print(f"\nIniciando transcrição de áudio para: {input_file.name}")
     print("Isso pode levar de alguns minutos até horas dependendo do tamanho do vídeo e da velocidade do seu computador...")
     
-    # O Whisper pode ler o arquivo de vídeo diretamente, ele extrai o áudio usando o ffmpeg automaticamente
+    # O Whisper pode ler o arquivo de vídeo diretamente; internamente ele aciona o FFmpeg para separar o áudio.
     transcribe_options = {"task": "transcribe"}
     if args.lang:
         transcribe_options["language"] = args.lang
 
-    # Executa a transcrição
+    # Executa a transcrição do arquivo
     result = model.transcribe(str(input_file), **transcribe_options)
 
-    # Exportando para SRT usando a ferramenta nativa do Whisper
+    # Utiliza as ferramentas nativas do próprio Whisper para exportar os resultados em SRT
     print("\nGerando arquivo SRT...")
     writer = get_writer("srt", output_dir)
     

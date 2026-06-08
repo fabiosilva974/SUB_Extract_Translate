@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Script: translate_subtitles_google_win.py
+Objetivo: Versão dedicada e robusta para Windows, que embute caminhos fixos de 
+          executáveis (FFmpeg e MKVToolNix) para extrair, transcodificar e traduzir 
+          legendas via Google Translate sem depender do PATH do sistema.
+"""
 # Importa módulos necessários para sistema, regex, JSON, CLI, processos e manipulação de arquivos
 import os
 import re
@@ -29,6 +35,7 @@ BATCH_SIZE = 30
 TARGET_LANG = "pt"
 
 def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
+    """Wrapper para rodar comandos de sistema. Faz um override dinâmico se o executável estiver no dicionário TOOLS."""
     if cmd[0] in TOOLS:
         cmd[0] = TOOLS[cmd[0]]
     return subprocess.run(cmd, capture_output=True, text=True, check=check, encoding="utf-8", errors="replace")
@@ -58,6 +65,10 @@ def extract_subtitle(mkv_path: str, track_id: int, out_path: str):
     run(["mkvextract", "tracks", mkv_path, f"{track_id}:{out_path}"])
 
 def pick_track(tracks: list[dict], prefer_lang: str) -> dict | None:
+    """
+    Função de fallback. Tenta encontrar a linguagem preferida. Se não achar, 
+    busca a faixa em inglês (eng). Como último recurso, retorna a primeira faixa.
+    """
     for t in tracks:
         if t["language"] == prefer_lang: return t
     for t in tracks:

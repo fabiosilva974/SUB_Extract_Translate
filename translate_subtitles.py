@@ -26,6 +26,7 @@ def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, check=check)
 
 def require_tool(name: str):
+    """Verifica se a ferramenta CLI especificada está disponível no PATH do sistema."""
     result = run(["where" if os.name == "nt" else "which", name], check=False)
     if result.returncode != 0:
         print(f"[ERRO] '{name}' não encontrado. Instale o mkvtoolnix.")
@@ -59,6 +60,7 @@ def pick_track(tracks: list[dict], prefer_lang: str) -> dict | None:
 ENTRY_RE = re.compile(r"(\d+)\r?\n([\d:,]+ --> [\d:,]+)\r?\n([\s\S]*?)(?=\n\n|\Z)", re.MULTILINE)
 
 def parse_srt(text: str) -> list[dict]:
+    """Usa Regex para processar o texto do arquivo SRT e retornar uma lista de blocos (index, timecode, text)."""
     entries = []
     for m in ENTRY_RE.finditer(text.strip()):
         entries.append({"index": m.group(1), "timecode": m.group(2), "text": m.group(3).strip()})
@@ -68,6 +70,11 @@ def build_srt(entries: list[dict]) -> str:
     return "\n".join([f"{e['index']}\n{e['timecode']}\n{e['text']}\n" for e in entries])
 
 def translate_batch(lines: list[str], source_lang: str = "inglês") -> list[str]:
+    """
+    Envia as frases para a API da Anthropic (Claude) solicitando a tradução.
+    Enumera cada linha para garantir que o modelo responda exatamente o mesmo 
+    número de frases e seja possível validar a sincronia posteriormente.
+    """
     import urllib.request
     numbered = "\n".join(f"{i+1}. {line}" for i, line in enumerate(lines))
     prompt = (
@@ -75,6 +82,7 @@ def translate_batch(lines: list[str], source_lang: str = "inglês") -> list[str]
         "Traduza cada linha abaixo mantendo tags HTML e mantendo a ordem.\n"
         f"{numbered}"
     )
+    # Prepara payload em JSON para a API Rest
     payload = json.dumps({
         "model": MODEL,
         "max_tokens": MAX_TOKENS,
@@ -90,13 +98,19 @@ def translate_batch(lines: list[str], source_lang: str = "inglês") -> list[str]
         },
         method="POST",
     )
+    # Efetua a requisição web
     with urllib.request.urlopen(req) as resp:
         data = json.loads(resp.read())
+    
+    # Processa e limpa a resposta do Claude retirando as numerações das linhas traduzidas
     raw = data["content"][0]["text"].strip()
     result_lines = []
     for line in raw.splitlines():
         m = re.match(r"^\d+\.\s*(.*)", line)
         if m: result_lines.append(m.group(1))
+    
+    # Mecanismo de segurança (fallback): se o Claude retornar menos falas do que as enviadas, 
+    # mantemos original para não quebrar a sincronização do arquivo SRT
     return result_lines if len(result_lines) == len(lines) else lines
 
 def translate_entries(entries: list[dict], source_lang: str = "inglês") -> list[dict]:

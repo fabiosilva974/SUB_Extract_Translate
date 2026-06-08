@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Script: extract_audio.py
+Objetivo: Extrair a faixa de áudio de um arquivo .mkv e salvá-la em .mp3.
+          Pode extrair um idioma específico e permite listar as faixas disponíveis.
+"""
 import os
 import sys
 import json
@@ -22,6 +27,11 @@ def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, capture_output=True, text=True, check=check, encoding="utf-8", errors="replace")
 
 def list_audio_tracks(mkv_path: str) -> list[dict]:
+    """
+    Usa o mkvmerge para analisar a estrutura do arquivo MKV e retornar uma
+    lista contendo metadados (id, idioma, codec, nome) das faixas de áudio.
+    """
+    # A flag -J faz com que o mkvmerge gere a saída da estrutura em JSON
     result = run(["mkvmerge", "-J", mkv_path])
     info = json.loads(result.stdout)
     tracks = []
@@ -78,11 +88,11 @@ def main():
     print(f" - Salvando em: {output_audio.name}")
     print("Por favor, aguarde...")
     
-    # Extrai usando FFmpeg
+    # Extrai usando FFmpeg e faz a conversão direta para mp3 usando libmp3lame
     cmd = [
         TOOLS["ffmpeg"], "-y",
         "-i", str(input_file),
-        "-map", f"0:{target_track['id']}",
+        "-map", f"0:{target_track['id']}", # Seleciona apenas o id da faixa encontrada
         "-c:a", "libmp3lame", "-q:a", "2",
         str(output_audio)
     ]

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Script: transcribe_audio.py
+Objetivo: Recebe um arquivo de áudio (.mp3, .wav) e usa o modelo IA Whisper para 
+          gerar a legenda (.srt) correspondente. Permite transcrição direta ou
+          tradução de áudio de idioma estrangeiro para o inglês.
+"""
 import os
 import sys
 import argparse
@@ -18,6 +24,7 @@ except ImportError:
     sys.exit(1)
 
 def main():
+    # Definição dos argumentos aceitos via linha de comando
     parser = argparse.ArgumentParser(description="Transcreve arquivo de áudio para legenda (SRT)")
     parser.add_argument("audio", help="Caminho para o arquivo de áudio (ex: .mp3, .wav)")
     parser.add_argument("--model", default="small", choices=["tiny", "base", "small", "medium", "large"])
@@ -43,10 +50,12 @@ def main():
 
     print(f"\nIniciando tarefa '{args.task}' de áudio para: {input_file.name}")
     
+    # Prepara o dicionário de opções para passar ao Whisper
     transcribe_options = {"task": args.task}
     if args.lang:
         transcribe_options["language"] = args.lang
 
+    # Executa o processamento do áudio via IA
     result = model.transcribe(str(input_file), **transcribe_options)
 
     print("\nGerando arquivo SRT...")

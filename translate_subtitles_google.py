@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+"""
+Script: translate_subtitles_google.py
+Objetivo: Extrai legendas encapsuladas de um vídeo (MKV) e traduz para português 
+          utilizando o serviço gratuito Google Translate (via deep-translator).
+"""
 import os
 import re
 import sys
@@ -25,6 +30,7 @@ def require_tool(name: str):
         sys.exit(1)
 
 def list_tracks(mkv_path: str) -> list[dict]:
+    """Usa o mkvmerge para extrair todas as propriedades de faixas de subtitle (legenda) em formato JSON."""
     result = run(["mkvmerge", "-J", mkv_path])
     info = json.loads(result.stdout)
     tracks = []
@@ -61,6 +67,7 @@ def build_srt(entries: list[dict]) -> str:
     return "\n".join([f"{e['index']}\n{e['timecode']}\n{e['text']}\n" for e in entries])
 
 def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
+    """Abre conexão com a API do Google Translate e traduz de uma vez a lista de sentenças enviada."""
     try:
         translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
         return translator.translate_batch(lines)
@@ -69,6 +76,7 @@ def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
         return lines
 
 def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[dict]:
+    """Orquestra a lógica de envio por pequenos lotes (BATCH_SIZE) para contornar limites da web e timeouts."""
     texts = [e["text"] for e in entries]
     total = len(texts)
     translated_texts = []
@@ -79,6 +87,7 @@ def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[di
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
 def convert_subtitle(input_path: str, output_path: str) -> bool:
+    """Invoca o FFmpeg para transformar de maneira forçada formatos entre si (ex: .ass para .srt e vice-versa)."""
     if input_path == output_path: return True
     result = run(["ffmpeg", "-y", "-i", input_path, output_path], check=False)
     return result.returncode == 0 and Path(output_path).exists()
