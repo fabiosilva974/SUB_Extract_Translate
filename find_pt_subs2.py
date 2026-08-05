@@ -1,10 +1,19 @@
-"""
-Script para identificar o idioma das faixas de legenda em arquivos MKV.
-Como os arquivos de vídeo fornecidos não possuíam tags de idioma nos metadados das faixas de legenda,
-este script utiliza o ffprobe para listar todas as faixas e o ffmpeg para ler os primeiros segundos
-de cada faixa. O texto extraído é salvo em um arquivo de texto para que possamos inspecionar visualmente
-e identificar qual faixa corresponde ao Português (ou qualquer outro idioma desejado).
-"""
+# ==============================================================================
+# Script: find_pt_subs2.py
+#
+# Objetivo:
+#   Identificar o idioma das faixas de legenda em arquivos MKV lendo as
+#   primeiras falas da legenda e escrevendo-as em um arquivo de texto para
+#   inspeção visual manual.
+#
+# Lógica Principal:
+#   Utiliza o ffprobe para listar todas as faixas e o ffmpeg para extrair e ler 
+#   os primeiros segundos de cada uma. O texto extraído de cada ID é salvo
+#   num log 'subtitles_peek.txt' para que o usuário identifique o ID de PT.
+#
+# Dependências Externas:
+#   FFmpeg, FFprobe
+# ==============================================================================
 
 import subprocess
 import json

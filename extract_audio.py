@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Script: extract_audio.py
-Objetivo: Extrair a faixa de áudio de um arquivo .mkv e salvá-la em .mp3.
-          Pode extrair um idioma específico e permite listar as faixas disponíveis.
-"""
+# ==============================================================================
+# Script: extract_audio.py
+#
+# Objetivo:
+#   Extrair a faixa de áudio de um arquivo .mkv e salvá-la em .mp3.
+#   Pode extrair um idioma específico e permite listar as faixas disponíveis.
+#
+# Lógica Principal:
+#   Usa o 'mkvmerge -J' para listar todas as faixas e filtra as de áudio, depois 
+#   invoca o 'ffmpeg' extraindo apenas a trilha desejada e encodando em MP3.
+#
+# Dependências Externas:
+#   MKVToolNix (mkvmerge), FFmpeg
+# ==============================================================================
 # Importa módulo para lidar com operações do sistema operacional
 import os
 # Importa módulo para interagir com o ambiente de execução Python (ex: sys.exit)

@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Script: translate_subtitles_google.py
-Objetivo: Extrai legendas encapsuladas de um vídeo (MKV) e traduz para português 
-          utilizando o serviço gratuito Google Translate (via deep-translator).
-"""
+# ==============================================================================
+# Script: translate_subtitles_google.py
+#
+# Objetivo:
+#   Extrai legendas encapsuladas de um vídeo (MKV) e traduz para português 
+#   utilizando o serviço gratuito Google Translate (via deep-translator).
+#
+# Lógica Principal:
+#   Utiliza o mkvmerge para identificar as faixas e o ffmpeg para extrair a legenda 
+#   no formato SRT. Em seguida, os blocos de legenda são divididos por Regex e enviados 
+#   em lotes de 30 para a API do Google Translate. O SRT é remontado no final.
+#
+# Dependências Externas:
+#   MKVToolNix (mkvmerge), FFmpeg, deep-translator
+# ==============================================================================
 # Importa módulo 'os' para interagir com o sistema operacional (caminhos, variáveis de ambiente)
 import os
 # Importa módulo 're' (Expressões Regulares) para manipulação avançada de strings e busca de padrões

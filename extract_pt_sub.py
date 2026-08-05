@@ -15,12 +15,22 @@ from pathlib import Path
 # Importa 'tempfile' para criar diretórios temporários para despejar arquivos intermediários
 import tempfile
 
-"""
-Script: extract_pt_sub.py
-Objetivo: Procura a faixa de legenda em Português dentro de um arquivo MKV
-          fazendo uma análise heurística do conteúdo das legendas, sem confiar
-          cegamente nos metadados da faixa, que frequentemente são incorretos.
-"""
+# ==============================================================================
+# Script: extract_pt_sub.py
+#
+# Objetivo:
+#   Procura a faixa de legenda em Português dentro de um arquivo MKV
+#   fazendo uma análise heurística do conteúdo das legendas, sem confiar
+#   cegamente nos metadados da faixa, que frequentemente são incorretos.
+#
+# Lógica Principal:
+#   Extrai temporariamente todas as legendas do arquivo e avalia o conteúdo de cada 
+#   uma contando a ocorrência de palavras-chave ("não", "você", etc.). A trilha
+#   com a pontuação mais alta é exportada permanentemente como .pt.srt.
+#
+# Dependências Externas:
+#   MKVToolNix (mkvmerge), FFmpeg
+# ==============================================================================
 
 # Configura o diretório padrão onde o pacote de ferramentas MKVToolNix fica instalado
 MKVTOOLNIX_DIR = r"C:\Program Files\MKVToolNix"

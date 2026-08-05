@@ -1,9 +1,19 @@
 #!/usr/bin/env python3
-"""
-translate_subtitles.py
-======================
-Extrai legenda de um arquivo .mkv e traduz para português usando a API Claude.
-"""
+# ==============================================================================
+# Script: translate_subtitles.py
+#
+# Objetivo:
+#   Extrair legenda embutida de um arquivo .mkv e traduzir para português
+#   usando a API da Anthropic (Claude).
+#
+# Lógica Principal:
+#   Extrai a legenda SRT do arquivo MKV original usando o FFmpeg. O texto é lido, 
+#   os blocos de diálogo identificados por Expressão Regular (Regex) e enviados 
+#   para a API do Claude em lotes. O arquivo SRT traduzido é então regerado.
+#
+# Dependências Externas:
+#   FFmpeg, anthropic
+# ==============================================================================
 
 # Importa módulo 'os' para interagir com sistema e variáveis de ambiente (como chaves de API)
 import os

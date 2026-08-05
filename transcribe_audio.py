@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Script: transcribe_audio.py
-Objetivo: Recebe um arquivo de áudio (.mp3, .wav) e usa o modelo IA Whisper para 
-          gerar a legenda (.srt) correspondente. Permite transcrição direta ou
-          tradução de áudio de idioma estrangeiro para o inglês.
-"""
+# ==============================================================================
+# Script: transcribe_audio.py
+#
+# Objetivo:
+#   Recebe um arquivo de áudio (.mp3, .wav) e usa o modelo IA Whisper para 
+#   gerar a legenda (.srt) correspondente. Permite transcrição direta ou
+#   tradução de áudio de idioma estrangeiro nativa para o inglês.
+#
+# Lógica Principal:
+#   Instancia o modelo do Whisper e processa o arquivo de áudio chamando a função 
+#   'transcribe()'. Por fim, converte os timestamps e dados gerados usando
+#   o utilitário 'get_writer' exportando como arquivo SRT.
+#
+# Dependências Externas:
+#   FFmpeg, openai-whisper
+# ==============================================================================
 # Importa módulo 'os' para interagir com o sistema operacional e modificar variáveis de ambiente
 import os
 # Importa módulo 'sys' para funções fundamentais como matar o processo em caso de erro

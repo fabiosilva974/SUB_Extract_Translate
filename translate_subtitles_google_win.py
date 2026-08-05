@@ -1,11 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Script: translate_subtitles_google_win.py
-Objetivo: Versão dedicada e robusta para Windows, que embute caminhos fixos de 
-          executáveis (FFmpeg e MKVToolNix) para extrair, transcodificar e traduzir 
-          legendas via Google Translate sem depender do PATH do sistema.
-"""
+# ==============================================================================
+# Script: translate_subtitles_google_win.py
+#
+# Objetivo:
+#   Versão dedicada e robusta para Windows, que embute caminhos fixos de 
+#   executáveis (FFmpeg e MKVToolNix) para extrair, transcodificar e traduzir 
+#   legendas via Google Translate sem depender do PATH do sistema.
+#
+# Lógica Principal:
+#   Mapeia os binários do Windows (mkvmerge, mkvextract, ffmpeg). Se a faixa
+#   embutida no MKV não for SRT (ex: VobSub, PGS), converte com ffmpeg e
+#   envia para o deep-translator. Caso ocorra erro de formatação/codificação,
+#   lida com exceções e corrige.
+#
+# Dependências Externas:
+#   MKVToolNix, FFmpeg, deep-translator
+# ==============================================================================
 # Importa o módulo 'os' para interagir com o sistema operacional e caminhos de arquivo
 import os
 # Importa 're' para usar expressões regulares (regex) na leitura do texto da legenda

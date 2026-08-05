@@ -8,12 +8,22 @@ from pathlib import Path
 import tempfile
 import glob
 
-"""
-Script: extract_en_sub.py
-Objetivo: Procura a faixa de legenda em Inglês dentro de um ou mais arquivos MKV
-          fazendo uma análise heurística do conteúdo das legendas, sem confiar
-          cegamente nos metadados da faixa. Suporta arquivos individuais ou diretórios.
-"""
+# ==============================================================================
+# Script: extract_en_sub.py
+#
+# Objetivo:
+#   Procura a faixa de legenda em Inglês dentro de um ou mais arquivos MKV
+#   fazendo uma análise heurística do conteúdo das legendas, sem confiar
+#   cegamente nos metadados da faixa. Suporta arquivos individuais ou diretórios.
+#
+# Lógica Principal:
+#   Extrai temporariamente todas as trilhas de legenda para a memória (ou disco),
+#   lê o conteúdo e conta a quantidade de palavras comuns da língua inglesa ("the",
+#   "be", "to", etc.). A trilha com a pontuação mais alta é exportada como ".en.srt".
+#
+# Dependências Externas:
+#   MKVToolNix (mkvmerge), FFmpeg
+# ==============================================================================
 
 # Configura o diretório padrão onde o pacote de ferramentas MKVToolNix fica instalado
 MKVTOOLNIX_DIR = r"C:\Program Files\MKVToolNix"
@@ -27,14 +37,19 @@ TOOLS = {
 }
 
 def run(cmd: list[str], check=True) -> subprocess.CompletedProcess:
+    # Substitui os nomes genéricos pelos caminhos absolutos mapeados
     if cmd[0] in TOOLS:
         cmd[0] = TOOLS[cmd[0]]
+    # Executa o subprocesso de forma segura, decodificando o output para utf-8
     return subprocess.run(cmd, capture_output=True, text=True, check=check, encoding="utf-8", errors="replace")
 
 def list_subtitle_tracks(mkv_path: str) -> list[dict]:
+    # Analisa a estrutura do MKV retornando JSON
     result = run(["mkvmerge", "-J", mkv_path])
     info = json.loads(result.stdout)
     tracks = []
+    
+    # Itera sobre todas as faixas e filtra apenas as que são legendas (subtitles)
     for t in info.get("tracks", []):
         if t["type"] == "subtitles":
             props = t.get("properties", {})
@@ -51,6 +66,7 @@ def is_english(text: str) -> int:
     Retorna uma pontuação baseada na quantidade de palavras muito comuns 
     na língua inglesa.
     """
+    # Lista das palavras mais frequentes na língua inglesa (usadas como heuristicas)
     en_words = [r"\bthe\b", r"\bbe\b", r"\bto\b", r"\bof\b", r"\band\b", r"\ba\b", 
                 r"\bin\b", r"\bthat\b", r"\bhave\b", r"\bi\b", r"\bit\b", r"\bfor\b", 
                 r"\bnot\b", r"\bon\b", r"\bwith\b", r"\bhe\b", r"\bas\b", r"\byou\b", 
@@ -58,6 +74,8 @@ def is_english(text: str) -> int:
                 r"\bfrom\b"]
     score = 0
     text_lower = text.lower()
+    
+    # Adiciona 1 ponto à variável score para cada ocorrência de uma dessas palavras
     for word_pattern in en_words:
         score += len(re.findall(word_pattern, text_lower))
     return score
@@ -84,11 +102,13 @@ def process_mkv(input_file: Path):
     with tempfile.TemporaryDirectory() as tmpdir:
         maps = []
         track_files = {}
+        # Prepara a extração simultânea de TODAS as faixas de legenda para a pasta temporária
         for t in tracks:
             tmp_srt = Path(tmpdir) / f"{t['id']}.srt"
             track_files[t['id']] = tmp_srt
             maps.extend(["-map", f"0:{t['id']}", str(tmp_srt)])
         
+        # O ffmpeg roda uma única vez e exporta os arquivos para cada '-map' configurado
         cmd = [TOOLS["ffmpeg"], "-y", "-i", str(input_file)] + maps
         subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         

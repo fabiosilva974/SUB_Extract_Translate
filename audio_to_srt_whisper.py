@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Script: audio_to_srt_whisper.py
-Objetivo: Utilizar o modelo Whisper (IA da OpenAI) para transcrever o áudio de um
-          arquivo de vídeo diretamente para um arquivo de legenda (.srt).
-"""
+# ==============================================================================
+# Script: audio_to_srt_whisper.py
+#
+# Objetivo:
+#   Utilizar o modelo Whisper (IA da OpenAI) para transcrever o áudio de um
+#   arquivo de vídeo diretamente para um arquivo de legenda (.srt).
+#
+# Lógica Principal:
+#   Carrega o modelo do Whisper, recebe os argumentos via CLI e processa a
+#   transcrição com a função model.transcribe(). Em seguida, utiliza o 'get_writer'
+#   para exportar o resultado final no formato de arquivo .srt.
+#
+# Dependências Externas:
+#   FFmpeg, openai-whisper
+# ==============================================================================
 # Importa módulo 'os' para interagir com o sistema operacional e variáveis de ambiente
 import os
 # Importa módulo 'sys' para funções e variáveis do sistema (ex: sys.exit para finalizar o script)

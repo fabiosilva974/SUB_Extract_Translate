@@ -1,5 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# Script: translate_ass_google.py
+#
+# Objetivo:
+#   Traduzir blocos de diálogos em arquivos de legenda do formato ASS
+#   preservando toda a estrutura, estilo e metadados originais do arquivo.
+#
+# Lógica Principal:
+#   O script lê as linhas do arquivo, identifica as marcações "Dialogue:",
+#   extrai o campo de texto bruto, envia lotes de 30 linhas para a API do 
+#   Google Translate, e depois re-insere o texto traduzido na linha original.
+#
+# Dependências Externas:
+#   deep-translator
+# ==============================================================================
 # Importa módulos necessários para manipulação de sistema, argumentos, busca de arquivos e tradução
 import os
 import sys

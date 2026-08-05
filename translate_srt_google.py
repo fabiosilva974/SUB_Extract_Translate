@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# ==============================================================================
+# Script: translate_srt_google.py
+#
+# Objetivo:
+#   Processa arquivos de legenda no formato SRT, identifica os blocos de texto
+#   e os envia em lotes para tradução via Google Translate (API não oficial).
+#
+# Lógica Principal:
+#   O arquivo é lido e analisado por Expressão Regular (Regex) que divide
+#   cada bloco em índice, timestamps e texto. O texto é isolado, processado 
+#   pela biblioteca deep-translator em lotes (batch) e, por fim, o arquivo 
+#   SRT é reconstruído e gravado com o sufixo '.pt.srt'.
+#
+# Dependências Externas:
+#   deep-translator
+# ==============================================================================
 # Importa o módulo para interações com o sistema operacional (caminhos, pastas)
 import os
 # Importa o módulo para expressões regulares (usado para identificar blocos SRT)
