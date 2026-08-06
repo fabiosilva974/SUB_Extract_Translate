@@ -41,6 +41,7 @@ Um script desenhado especificamente para criar relatórios de bibliotecas de mí
 2. Executaremos o script apontando para `U:\`.
 3. Verificaremos o relatório final gerado para garantir que você tenha um mapa detalhado da sua biblioteca antes de decidirmos mandar nosso batch de compressão atacar essas pastas.
 
-## Execução Atual
-- O script `map_drive_opportunities.py` já foi modificado para gerar o arquivo `.md` dividido por subpastas.
-- A execução atual está ocorrendo em segundo plano e salvando o relatório em: `E:\Traducao\melhorias\relatorio_U.md`
+## Status de Execução
+
+> [!NOTE]
+> **[CONCLUÍDO]** O script `map_drive_opportunities.py` foi executado com sucesso na totalidade da unidade U:\. O relatório final foi gerado e salvo em `E:\Traducao\melhorias\relatorio_U.md`, revelando mais de 3.7 TB em oportunidades totais de compressão.
