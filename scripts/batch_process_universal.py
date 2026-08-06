@@ -207,7 +207,8 @@ def process_file(file_path, delete_original, os_name, gpu):
                 file_path.unlink()
             return
             
-        encoded_temp = file_path.parent / (new_name + ".part")
+        # Manter a extensão no final para o FFmpeg entender o formato (ex: _part_Filme.mkv)
+        encoded_temp = file_path.parent / f"_part_{new_name}"
         
         print(f"  -> Convertendo para HEVC ({gpu.upper()}) pela rede...")
         start_time = time.time()
@@ -249,6 +250,9 @@ def process_file(file_path, delete_original, os_name, gpu):
             lock_file.unlink()
 
 def main():
+    if sys.platform == "win32":
+        sys.stdout.reconfigure(encoding='utf-8')
+        
     parser = argparse.ArgumentParser(description="Conversor Universal (Cluster Ready)")
     parser.add_argument("--csv", help="Caminho para o arquivo CSV de lista")
     parser.add_argument("--all", action="store_true", help="Processa toda a biblioteca em vez de só o piloto")
