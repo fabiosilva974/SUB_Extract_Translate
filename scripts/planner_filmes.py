@@ -18,8 +18,9 @@ def get_video_metadata(file_path):
     """
     cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", str(file_path)]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        data = json.loads(result.stdout)
+        result = subprocess.run(cmd, capture_output=True, check=True)
+        stdout_str = result.stdout.decode('utf-8', errors='replace')
+        data = json.loads(stdout_str)
     except Exception:
         return None, False
 
@@ -56,7 +57,7 @@ def sanitize_title(title):
 
 def generate_new_name(original_path, width):
     """
-    Usa o guessit para adivinhar Título, Ano e Resolução e monta no padrão desejado.
+    Usa o guessit para adivinhar Título, Ano, Resolução, Temporada e Episódio e monta no padrão desejado.
     """
     filename = original_path.name
     guess = guessit(filename)
@@ -65,15 +66,29 @@ def generate_new_name(original_path, width):
     title = sanitize_title(title)
     
     year = guess.get('year', '')
+    season = guess.get('season')
+    episode = guess.get('episode')
     
     resolution = guess.get('screen_size')
     if not resolution:
         resolution = get_resolution_name(width)
     
-    # Monta a estrutura Nome.Ano.Resolucao.H265.mkv
     parts = [title]
     if year:
         parts.append(str(year))
+        
+    # Lógica para Séries e Animes (S01E01 ou apenas E01)
+    if season is not None:
+        if isinstance(season, list): season = season[0]
+        s_str = f"S{int(season):02d}"
+        if episode is not None:
+            if isinstance(episode, list): episode = episode[0]
+            s_str += f"E{int(episode):02d}"
+        parts.append(s_str)
+    elif episode is not None:
+        if isinstance(episode, list): episode = episode[0]
+        parts.append(f"E{int(episode):02d}")
+        
     if resolution and resolution != "Unknown":
         parts.append(str(resolution))
         
