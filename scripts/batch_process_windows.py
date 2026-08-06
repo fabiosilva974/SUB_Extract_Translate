@@ -193,6 +193,10 @@ def main():
         desc = "toda a biblioteca" if args.all else "o Lote Piloto"
         print(f"Encontrados {len(to_process)} vídeos para {desc}.")
         for path_str in to_process:
+            # Universal Path Translator (Linux -> Windows)
+            path_str = path_str.replace("/mnt/Media/", "\\\\192.168.0.99\\Media\\")
+            path_str = path_str.replace("/", "\\")
+            
             file_path = Path(path_str)
             process_file(file_path, args.delete)
             
