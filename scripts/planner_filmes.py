@@ -63,11 +63,22 @@ def generate_new_name(original_path, width):
     guess = guessit(filename)
     
     title = guess.get('title', original_path.stem)
-    title = sanitize_title(title)
     
+    alt_title = guess.get('alternative_title')
+    if alt_title:
+        title = f"{title}.{alt_title}"
+        
     year = guess.get('year', '')
     season = guess.get('season')
     episode = guess.get('episode')
+    episode_title = guess.get('episode_title')
+    
+    # Se não houver temporada nem episódio, mas houver titulo de episódio (comum em filmes de anime)
+    if not season and not episode and episode_title:
+        title = f"{title}.{episode_title}"
+        episode_title = None # já usamos no titulo
+        
+    title = sanitize_title(title)
     
     resolution = guess.get('screen_size')
     if not resolution:
@@ -88,6 +99,10 @@ def generate_new_name(original_path, width):
     elif episode is not None:
         if isinstance(episode, list): episode = episode[0]
         parts.append(f"E{int(episode):02d}")
+        
+    if episode_title:
+        if isinstance(episode_title, list): episode_title = episode_title[0]
+        parts.append(sanitize_title(episode_title))
         
     if resolution and resolution != "Unknown":
         parts.append(str(resolution))

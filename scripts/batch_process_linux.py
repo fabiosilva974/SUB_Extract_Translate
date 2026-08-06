@@ -34,22 +34,58 @@ def sanitize_title(title):
     while ".." in title: title = title.replace("..", ".")
     return title
 
+def get_resolution_name(width):
+    w = int(width) if width else 0
+    if w >= 3800: return "2160p"
+    elif w >= 1900: return "1080p"
+    elif w >= 1200: return "720p"
+    else: return "480p"
+
 def generate_new_name(original_path, width):
     guess = guessit(original_path.name)
-    title = sanitize_title(guess.get('title', original_path.stem))
-    year = guess.get('year', '')
-    resolution = guess.get('screen_size', '')
+    title = guess.get('title', original_path.stem)
+    
+    alt_title = guess.get('alternative_title')
+    if alt_title:
+        title = f"{title}.{alt_title}"
         
+    year = guess.get('year', '')
+    season = guess.get('season')
+    episode = guess.get('episode')
+    episode_title = guess.get('episode_title')
+    
+    if not season and not episode and episode_title:
+        title = f"{title}.{episode_title}"
+        episode_title = None
+        
+    title = sanitize_title(title)
+    
+    resolution = guess.get('screen_size')
     if not resolution:
-        w = int(width) if width else 0
-        if w >= 3800: resolution = "2160p"
-        elif w >= 1900: resolution = "1080p"
-        elif w >= 1200: resolution = "720p"
-        else: resolution = "480p"
-
+        resolution = get_resolution_name(width)
+    
     parts = [title]
-    if year: parts.append(str(year))
-    if resolution and resolution != "Unknown": parts.append(str(resolution))
+    if year:
+        parts.append(str(year))
+        
+    if season is not None:
+        if isinstance(season, list): season = season[0]
+        s_str = f"S{int(season):02d}"
+        if episode is not None:
+            if isinstance(episode, list): episode = episode[0]
+            s_str += f"E{int(episode):02d}"
+        parts.append(s_str)
+    elif episode is not None:
+        if isinstance(episode, list): episode = episode[0]
+        parts.append(f"E{int(episode):02d}")
+        
+    if episode_title:
+        if isinstance(episode_title, list): episode_title = episode_title[0]
+        parts.append(sanitize_title(episode_title))
+        
+    if resolution and resolution != "Unknown":
+        parts.append(str(resolution))
+        
     parts.append("H265")
     
     return ".".join(parts) + original_path.suffix
