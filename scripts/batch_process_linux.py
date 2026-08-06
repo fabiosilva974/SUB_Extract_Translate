@@ -69,6 +69,7 @@ def encode_video(input_path, output_path, quality=26):
         "-qmax", str(quality),
         "-c:a", "copy",
         "-c:s", "copy",
+        "-f", "matroska",
         str(output_path)
     ]
     
