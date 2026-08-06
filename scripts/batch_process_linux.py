@@ -137,19 +137,44 @@ def process_file(file_path, temp_dir, delete_original=False):
 
 def main():
     parser = argparse.ArgumentParser(description="Conversor Nativo Linux (In-Place)")
-    parser.add_argument("--input", required=True, help="Arquivo de vídeo para processar")
+    parser.add_argument("--input", help="Arquivo de vídeo único para processar")
+    parser.add_argument("--csv", help="Caminho para o mapa_filmes_renomeio.csv gerado pelo planner")
     parser.add_argument("--temp", default="/home/conversor/TEMP", help="Diretório temporário local")
     parser.add_argument("--delete", action="store_true", help="Deletar o original após sucesso (Fase 3)")
     args = parser.parse_args()
     
-    input_path = Path(args.input).resolve()
     temp_dir = Path(args.temp).resolve()
     temp_dir.mkdir(parents=True, exist_ok=True)
     
-    if input_path.is_file():
-        process_file(input_path, temp_dir, args.delete)
+    if args.input:
+        input_path = Path(args.input).resolve()
+        if input_path.is_file():
+            process_file(input_path, temp_dir, args.delete)
+        else:
+            print("Para --input, passe o caminho exato do arquivo .mkv")
+    
+    elif args.csv:
+        csv_path = Path(args.csv).resolve()
+        if not csv_path.exists():
+            print(f"Erro: CSV não encontrado em {csv_path}")
+            return
+            
+        import csv as csv_lib
+        to_process = []
+        with open(csv_path, mode='r', encoding='utf-8-sig') as f:
+            reader = csv_lib.DictReader(f, delimiter=';')
+            for row in reader:
+                if row.get('Lote_Piloto') == 'SIM':
+                    to_process.append(row['Caminho_Completo_Original'])
+                    
+        print(f"Encontrados {len(to_process)} vídeos marcados para o Lote Piloto.")
+        for path_str in to_process:
+            file_path = Path(path_str)
+            process_file(file_path, temp_dir, args.delete)
+            
+        print("\nProcessamento do Lote Piloto concluído!")
     else:
-        print("Para esta versão, passe o caminho exato do arquivo .mkv")
+        parser.print_help()
 
 if __name__ == "__main__":
     main()
