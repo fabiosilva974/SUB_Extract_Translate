@@ -279,7 +279,7 @@ def main():
                 # Converte o extraído para o que foi pedido via ffmpeg
                 convert_subtitle(raw_path, str(dest_path))
                 # Aviso de sucesso
-                print(f"✅ Extraído: {dest_path}")
+                print(f"[SUCESSO] Extraído: {dest_path}")
                 # Interrompe o processo desse arquivo e vai pro próximo
                 continue
 

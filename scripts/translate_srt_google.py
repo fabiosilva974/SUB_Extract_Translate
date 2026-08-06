@@ -69,38 +69,45 @@ def build_srt(entries: list[dict]) -> str:
     # Une todos os blocos usando uma quebra de linha como separador
     return "\n".join(blocks)
 
-# Função que realiza a tradução de uma lista de textos de uma só vez
-def translate_batch(lines: list[str], source_lang: str = "auto", target_lang: str = "pt") -> list[str]:
-    # Tenta executar a operação de tradução
-    try:
-        # Instancia o tradutor configurando origem e o destino padrão
-        translator = GoogleTranslator(source=source_lang, target=target_lang)
-        # Envia a lista de linhas para o tradutor e aguarda o retorno
-        return translator.translate_batch(lines)
-    # Em caso de falha (conexão, limite de caracteres, etc)
-    except Exception as e:
-        # Exibe a mensagem de erro no console para diagnóstico
-        print(f"  [erro na tradução] {e}")
-        # Retorna as linhas originais para evitar perda de dados no arquivo final
-        return lines
+# Função que realiza a tradução de uma lista de textos, suportando múltiplas tentativas em caso de rate-limit
+def translate_batch_with_retry(lines: list[str], source_lang: str = "auto", target_lang: str = "pt", max_retries: int = 3) -> tuple[list[str], bool]:
+    import time
+    for attempt in range(max_retries):
+        try:
+            translator = GoogleTranslator(source=source_lang, target=target_lang)
+            results = translator.translate_batch(lines)
+            if results and any(r and "Error 500" in r for r in results):
+                raise Exception("A API retornou Erro 500 como texto (limite atingido).")
+            return results, True
+        except Exception as e:
+            print(f"  [Aviso] Falha na tradução (tentativa {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 3)
+    print("  [ERRO CRÍTICO] Lote falhou após todas as tentativas. As linhas originais foram mantidas.")
+    return lines, False
 
 # Função que gerencia o fluxo de tradução de todas as legendas em pequenos grupos
 def translate_entries(entries: list[dict], source_lang: str = "auto", target_lang: str = "pt") -> list[dict]:
-    # Extrai apenas o texto de diálogo de cada objeto da lista original
     texts = [e["text"] for e in entries]
-    # Armazena a contagem total de blocos para exibir o progresso
     total = len(texts)
-    # Inicializa a lista que guardará os textos convertidos para português
     translated_texts = []
-    # Divide a tradução em fatias (lotes) baseadas no BATCH_SIZE definido
+    
+    failed_batches = 0
     for start in range(0, total, BATCH_SIZE):
-        # Define o ponto final da fatia atual
         end = min(start + BATCH_SIZE, total)
-        # Exibe a porcentagem de conclusão no terminal
         print(f"  Traduzindo blocos {start+1}–{end} de {total} ({int(end/total*100)}%)…")
-        # Traduz a fatia atual e adiciona os resultados à lista acumuladora
-        translated_texts.extend(translate_batch(texts[start:end], source_lang, target_lang))
-    # Reconstrói a lista de dicionários mantendo os metadados mas trocando o texto pelo traduzido
+        
+        trans_lines, success = translate_batch_with_retry(texts[start:end], source_lang, target_lang)
+        if not success:
+            failed_batches += 1
+            
+        translated_texts.extend(trans_lines)
+        
+    if failed_batches > 0:
+        print(f"\n  [ALERTA DE INTEGRIDADE] Ocorreram falhas em {failed_batches} lote(s) devido a limites da API.")
+        raise RuntimeError("Tradução incompleta. Abortando para evitar geração de arquivo misto.")
+        
+    print("\n  [SUCESSO] Checagem de integridade concluída. Tradução 100% finalizada.")
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
 # Função principal que orquestra a execução do script
@@ -169,7 +176,7 @@ def main():
                 f.write(build_srt(translated))
             
             # Confirma o sucesso da operação e informa o local do novo arquivo
-            print(f"\n✅ Tradução salva em: {out_path}")
+            print(f"\n[SUCESSO] Tradução salva em: {out_path}")
 
         # Captura qualquer erro inesperado durante o processamento do arquivo específico
         except Exception as e:

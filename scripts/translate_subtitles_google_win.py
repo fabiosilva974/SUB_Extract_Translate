@@ -145,18 +145,22 @@ def build_srt(entries: list[dict]) -> str:
     # Junta todas as linhas, formatando cada bloco: "índice \n tempo \n texto \n" com uma quebra final
     return "\n".join([f"{e['index']}\n{e['timecode']}\n{e['text']}\n" for e in entries])
 
-# Função que traduz uma lista de linhas de texto usando a API do Google Translate
-def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
-    try:
-        # Inicializa o objeto do tradutor configurando idioma de origem e idioma de destino
-        translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
-        # Realiza a tradução em lote passando a lista de strings
-        return translator.translate_batch(lines)
-    except Exception as e:
-        # Caso ocorra falha (erro de conexão, timeout, etc), imprime o erro
-        print(f"  [erro na tradução] {e}")
-        # Retorna o texto original sem tradução como forma de segurança para não perder o texto
-        return lines
+# Função que traduz uma lista de linhas de texto suportando múltiplas tentativas em caso de erro
+def translate_batch_with_retry(lines: list[str], source_lang: str = "auto", max_retries: int = 3) -> tuple[list[str], bool]:
+    import time
+    for attempt in range(max_retries):
+        try:
+            translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
+            results = translator.translate_batch(lines)
+            if results and any(r and "Error 500" in r for r in results):
+                raise Exception("A API retornou Erro 500 como texto (limite atingido).")
+            return results, True
+        except Exception as e:
+            print(f"  [Aviso] Falha na tradução (tentativa {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 3)
+    print("  [ERRO CRÍTICO] Lote falhou após todas as tentativas. As linhas originais foram mantidas.")
+    return lines, False
 
 # Função que recebe os blocos formatados de legenda e gerencia o processo de tradução
 def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[dict]:
@@ -166,14 +170,29 @@ def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[di
     total = len(texts)
     # Inicializa a lista final que armazenará os textos traduzidos
     translated_texts = []
+    
+    failed_batches = 0
+    
     # Itera de 0 até o final da lista em passos do tamanho configurado em BATCH_SIZE (ex: 30)
     for start in range(0, total, BATCH_SIZE):
         # Calcula o índice final do lote (limitado ao total de textos para não dar erro)
         end = min(start + BATCH_SIZE, total)
         # Imprime o progresso em porcentagem na tela do usuário
         print(f"  Traduzindo blocos {start+1}–{end} de {total} ({int(end/total*100)}%)…")
+        
         # Envia a fatia 'start:end' da lista de textos e adiciona o resultado à lista final
-        translated_texts.extend(translate_batch(texts[start:end], source_lang))
+        trans_lines, success = translate_batch_with_retry(texts[start:end], source_lang)
+        if not success:
+            failed_batches += 1
+            
+        translated_texts.extend(trans_lines)
+        
+    if failed_batches > 0:
+        print(f"\n  [ALERTA DE INTEGRIDADE] Ocorreram falhas em {failed_batches} lote(s) devido a limites da API.")
+        raise RuntimeError("Tradução incompleta. Abortando para evitar geração de arquivo misto.")
+        
+    print("\n  [SUCESSO] Checagem de integridade concluída. Tradução 100% finalizada.")
+    
     # Reconstrói os dicionários fundindo o original '{**e}' com a chave "text" atualizada para o valor traduzido
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
@@ -271,7 +290,7 @@ def main():
                 dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
                 # Tenta converter a legenda recém extraída para o formato desejado, se não puder faz uma cópia apenas
                 if convert_subtitle(raw_path, str(dest_path)):
-                    print(f"\n✅ Extração concluída no formato {args.format.upper()}: {dest_path}")
+                    print(f"\n[SUCESSO] Extração concluída no formato {args.format.upper()}: {dest_path}")
                 else:
                     print(f"\n[ERRO] Falha ao converter para {args.format.upper()}")
                 # Como foi apenas extração, pula pro próximo arquivo MKV
@@ -315,13 +334,13 @@ def main():
             if args.format == "ass":
                 # Converte o arquivo SRT temporário que tem as traduções para o formato ASS e avisa resultado
                 if convert_subtitle(translated_srt, str(out_path)):
-                    print(f"\n✅ Tradução concluída no formato ASS: {out_path}")
+                    print(f"\n[SUCESSO] Tradução concluída no formato ASS: {out_path}")
                 else:
                     print(f"\n[ERRO] Falha ao converter tradução para ASS.")
             else:
                 # Se o usuário não pediu ASS, o padrão é SRT, então apenas copia e move o arquivo temporário SRT para o lugar final
                 shutil.copy(translated_srt, out_path)
-                print(f"\n✅ Tradução concluída no formato SRT: {out_path}")
+                print(f"\n[SUCESSO] Tradução concluída no formato SRT: {out_path}")
 
 # Verifica se o script está sendo rodado diretamente (ao invés de ser importado por outro) e invoca a main
 if __name__ == "__main__":

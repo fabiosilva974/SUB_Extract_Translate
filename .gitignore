@@ -36,3 +36,8 @@ Thumbs.db
 *.log
 Michael [2026] HDTS v2 YG/
 Torrent/
+
+# Pastas de planejamento, relatório e temp
+TEMP/
+planos/
+melhorias/

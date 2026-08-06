@@ -29,15 +29,16 @@ def process_mkv(mkv_path):
     dir_name = os.path.dirname(mkv_path)
     prefix = base_name.replace(".mkv", "")
     
-    # Procura pelo arquivo de legenda .pt.srt correspondente
+    # Procura pelo arquivo de legenda .pt.srt ou .pt.ass correspondente
     srt_pattern = os.path.join(dir_name, f"{prefix}*.pt.srt")
-    srts = glob.glob(srt_pattern)
+    ass_pattern = os.path.join(dir_name, f"{prefix}*.pt.ass")
+    subs = glob.glob(srt_pattern) + glob.glob(ass_pattern)
     
-    if not srts:
-        print(f"[AVISO] Nenhuma legenda .pt.srt encontrada para: {base_name}")
+    if not subs:
+        print(f"[AVISO] Nenhuma legenda PT (.pt.srt ou .pt.ass) encontrada para: {base_name}")
         return
     
-    srt_path = srts[0]
+    sub_path = subs[0]
     
     # Executa mkvmerge -J para obter informações sobre as faixas no formato JSON
     cmd_j = [MKVMERGE_PATH, "-J", mkv_path]
@@ -74,6 +75,10 @@ def process_mkv(mkv_path):
     
     out_mkv = os.path.join(dir_name, f"{prefix}_PT.mkv")
     
+    if os.path.exists(out_mkv):
+        print(f"[AVISO] O arquivo {os.path.basename(out_mkv)} já existe. Pulando...")
+        return
+    
     # Constrói o comando do mkvmerge
     cmd = [MKVMERGE_PATH, "-o", out_mkv]
     
@@ -97,7 +102,7 @@ def process_mkv(mkv_path):
         "--language", "0:por",
         "--track-name", "0:Português (BR)",
         "--default-track-flag", "0:yes",
-        srt_path
+        sub_path
     ])
     
     print(f"\n============================================================")

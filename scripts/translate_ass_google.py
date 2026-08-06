@@ -29,17 +29,22 @@ BATCH_SIZE = 30
 # Define o idioma de destino padrão como português
 TARGET_LANG = "pt"
 
-# Função que realiza a tradução de uma lista de textos
-def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
-    try:
-        # Instancia o tradutor com os idiomas de origem (auto) e destino
-        translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
-        # Executa a tradução em lote
-        return translator.translate_batch(lines)
-    except Exception as e:
-        # Em caso de erro, avisa no terminal e retorna o texto original para não parar o script
-        print(f"  [erro na tradução] {e}")
-        return lines
+# Função que realiza a tradução de uma lista de textos suportando múltiplas tentativas
+def translate_batch_with_retry(lines: list[str], source_lang: str = "auto", max_retries: int = 3) -> tuple[list[str], bool]:
+    import time
+    for attempt in range(max_retries):
+        try:
+            translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
+            results = translator.translate_batch(lines)
+            if results and any(r and "Error 500" in r for r in results):
+                raise Exception("A API retornou Erro 500 como texto (limite atingido).")
+            return results, True
+        except Exception as e:
+            print(f"  [Aviso] Falha na tradução (tentativa {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 3)
+    print("  [ERRO CRÍTICO] Lote falhou após todas as tentativas. As linhas originais foram mantidas.")
+    return lines, False
 
 # Função principal de processamento do arquivo ASS
 def translate_ass_file(file_path: str, source_lang: str = "auto", output_path: str = None):
@@ -71,12 +76,23 @@ def translate_ass_file(file_path: str, source_lang: str = "auto", output_path: s
 
     # Realiza a tradução dos textos coletados em blocos (batches)
     translated_texts = []
+    failed_batches = 0
     for start in range(0, total, BATCH_SIZE):
         end = min(start + BATCH_SIZE, total)
         print(f"  Traduzindo blocos {start+1}–{end} de {total} ({int(end/total*100)}%)…")
-        # Traduz o lote atual
+        
         batch = texts_to_translate[start:end]
-        translated_texts.extend(translate_batch(batch, source_lang))
+        trans_lines, success = translate_batch_with_retry(batch, source_lang)
+        if not success:
+            failed_batches += 1
+            
+        translated_texts.extend(trans_lines)
+
+    if failed_batches > 0:
+        print(f"\n  [ALERTA DE INTEGRIDADE] Ocorreram falhas em {failed_batches} lote(s) devido a limites da API.")
+        raise RuntimeError("Tradução incompleta. Abortando para evitar geração de arquivo misto.")
+        
+    print("\n  [SUCESSO] Checagem de integridade concluída. Tradução 100% finalizada.")
 
     # Substitui os textos originais pelos traduzidos nas linhas correspondentes
     for idx, translated_text in zip(dialogue_indices, translated_texts):
@@ -90,8 +106,7 @@ def translate_ass_file(file_path: str, source_lang: str = "auto", output_path: s
     # Grava o novo arquivo ASS com a mesma estrutura original mas textos em português
     with open(out, 'w', encoding='utf-8') as f:
         f.writelines(lines)
-    
-    print(f"\n✅ Tradução concluída: {out}")
+    print(f"\n[SUCESSO] Tradução concluída: {out}")
 
 # Ponto de entrada do script via linha de comando
 def main():

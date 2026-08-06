@@ -114,18 +114,22 @@ def build_srt(entries: list[dict]) -> str:
     # Usando string comprehension, monta "indice \n tempo \n texto \n"
     return "\n".join([f"{e['index']}\n{e['timecode']}\n{e['text']}\n" for e in entries])
 
-# Módulo básico de comunicação com a API de tradução do Google
-def translate_batch(lines: list[str], source_lang: str = "auto") -> list[str]:
-    """Abre conexão com a API do Google Translate e traduz de uma vez a lista de sentenças enviada."""
-    try:
-        # Prepara o objeto passando origem (auto-detect) e destino (pt)
-        translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
-        # Bate na API de fato e retorna
-        return translator.translate_batch(lines)
-    except Exception as e:
-        # Se ocorrer falha de rede/timeout, avisa e devolve intacto pra não perder o arquivo todo
-        print(f"  [erro na tradução] {e}")
-        return lines
+# Função que realiza a tradução de uma lista de textos suportando múltiplas tentativas
+def translate_batch_with_retry(lines: list[str], source_lang: str = "auto", max_retries: int = 3) -> tuple[list[str], bool]:
+    import time
+    for attempt in range(max_retries):
+        try:
+            translator = GoogleTranslator(source=source_lang, target=TARGET_LANG)
+            results = translator.translate_batch(lines)
+            if results and any(r and "Error 500" in r for r in results):
+                raise Exception("A API retornou Erro 500 como texto (limite atingido).")
+            return results, True
+        except Exception as e:
+            print(f"  [Aviso] Falha na tradução (tentativa {attempt + 1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                time.sleep((attempt + 1) * 3)
+    print("  [ERRO CRÍTICO] Lote falhou após todas as tentativas. As linhas originais foram mantidas.")
+    return lines, False
 
 # Orquestrador da divisão em lotes para evitar que a API negue a conexão
 def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[dict]:
@@ -134,14 +138,29 @@ def translate_entries(entries: list[dict], source_lang: str = "auto") -> list[di
     texts = [e["text"] for e in entries]
     total = len(texts)
     translated_texts = []
+    
+    failed_batches = 0
+    
     # Avança pela lista pulando em passos iguais a 'BATCH_SIZE' (ex: 30)
     for start in range(0, total, BATCH_SIZE):
         # Determina o máximo pulo para a fatia
         end = min(start + BATCH_SIZE, total)
         # Mostra o status do carregamento para o usuário final
         print(f"  Traduzindo blocos {start+1}–{end} de {total} ({int(end/total*100)}%)…")
+        
         # Anexa o resultado do lote aos textos totais que já foram traduzidos
-        translated_texts.extend(translate_batch(texts[start:end], source_lang))
+        trans_lines, success = translate_batch_with_retry(texts[start:end], source_lang)
+        if not success:
+            failed_batches += 1
+            
+        translated_texts.extend(trans_lines)
+        
+    if failed_batches > 0:
+        print(f"\n  [ALERTA DE INTEGRIDADE] Ocorreram falhas em {failed_batches} lote(s) devido a limites da API.")
+        raise RuntimeError("Tradução incompleta. Abortando para evitar geração de arquivo misto.")
+        
+    print("\n  [SUCESSO] Checagem de integridade concluída. Tradução 100% finalizada.")
+    
     # Reconstrói a estrutura, mudando somente o valor do texto para o novo idioma
     return [{**e, "text": t} for e, t in zip(entries, translated_texts)]
 
@@ -220,7 +239,7 @@ def main():
                 dest_path = args.output or Path(mkv_path).with_suffix(final_ext)
                 # Chama ffmpeg para transformar
                 convert_subtitle(raw_path, str(dest_path))
-                print(f"\n✅ Extração concluída: {dest_path}")
+                print(f"\n[SUCESSO] Extração concluída: {dest_path}")
                 continue
 
             # Início da fase de tradução - Primeiro passo é converter pro SRT base, pois usamos o Regex dele
@@ -255,7 +274,7 @@ def main():
                 # Cópia simples se for formato padrão textual
                 shutil.copy(translated_srt, out_path)
             
-            print(f"\n✅ Concluído ({args.format.upper()}): {out_path}")
+            print(f"\n[SUCESSO] Concluído ({args.format.upper()}): {out_path}")
 
 # Boa prática pra impedir que o main() rode se eu tiver só importando funções soltas desse script num projeto maior
 if __name__ == "__main__":

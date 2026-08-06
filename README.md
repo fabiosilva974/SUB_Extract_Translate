@@ -29,6 +29,7 @@ Todos os scripts estão localizados na pasta `scripts/` e suas documentações d
 - `scripts/extract_pt_sub.py`: Procura inteligentemente pela faixa de legenda em Português avaliando o texto (heurística) e extrai o `.srt`.
 - `scripts/extract_en_sub.py`: Procura inteligentemente pela faixa de legenda em Inglês avaliando o texto e extrai o `.srt`.
 - `scripts/mux_pt_subs.py`: Embuti (mux) a legenda traduzida de volta no arquivo de vídeo original, configurando o Áudio e a Legenda correta como "Padrão" (default) automaticamente.
+- `scripts/compress_to_hevc.py`: Comprime vídeos para o formato HEVC (H.265) reduzindo drasticamente o tamanho do arquivo. Possui detecção automática de placa de vídeo (NVENC, AMF, QSV) para acelerar a conversão e preserva todas as faixas originais de áudio e legendas intactas. Permite ajustar o nível de qualidade com um 3º parâmetro opcional.
 - `scripts/find_pt_subs.py` e `find_pt_subs2.py`: Scripts rápidos de laboratório usando `ffprobe` para extrair amostras de texto e auxiliar na inspeção manual de faixas.
 
 ### 🚀 Início Rápido
@@ -50,6 +51,10 @@ Todos os scripts estão localizados na pasta `scripts/` e suas documentações d
    # Extrair áudio em japonês e traduzir direto para INGLÊS com Whisper
    python scripts/extract_audio.py video.mkv --lang jpn
    python scripts/transcribe_audio.py video.mp3 --lang ja --task translate
+
+   # Comprimir vídeo para HEVC (H.265) usando Aceleração por Hardware (GPU)
+   # O valor numérico final (ex: 20) define a qualidade (opcional, padrão 26). Menor = mais qualidade/tamanho.
+   python scripts/compress_to_hevc.py original.mkv comprimido.mkv 20
    ```
 
 ---
@@ -79,6 +84,7 @@ All executable scripts are located in the `scripts/` folder, and their detailed 
 - `scripts/extract_pt_sub.py`: Intelligently searches for the Portuguese subtitle track by analyzing text content (heuristics) and extracts the `.srt`.
 - `scripts/extract_en_sub.py`: Intelligently searches for the English subtitle track by analyzing text content and extracts the `.srt`.
 - `scripts/mux_pt_subs.py`: Muxes translated subtitles back into the video file, automatically setting the correct Audio and Subtitle tracks as "Default".
+- `scripts/compress_to_hevc.py`: Compresses videos to the HEVC (H.265) format, significantly reducing file size. Features automatic GPU detection (NVENC, AMF, QSV) for hardware acceleration and perfectly preserves all original tracks (audio, subtitles, and attached fonts). Allows quality level adjustment via an optional 3rd parameter.
 - `scripts/find_pt_subs.py` & `find_pt_subs2.py`: Fast lab scripts using `ffprobe` to sample text lines for manual inspection of unknown tracks.
 
 ### 🚀 Quick Start
@@ -100,4 +106,8 @@ All executable scripts are located in the `scripts/` folder, and their detailed 
    # Extract Japanese audio and transcribe/translate directly to ENGLISH with Whisper
    python scripts/extract_audio.py video.mkv --lang jpn
    python scripts/transcribe_audio.py video.mp3 --lang ja --task translate
+
+   # Compress video to HEVC (H.265) using Hardware Acceleration (GPU)
+   # The final numeric value (e.g., 20) defines quality (optional, default 26). Lower = higher quality/size.
+   python scripts/compress_to_hevc.py original.mkv compressed.mkv 20
    ```
