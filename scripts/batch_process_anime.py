@@ -23,14 +23,18 @@ import time
 import re
 import json
 import csv
+import platform
 from pathlib import Path
 
 def get_gpu_vendor():
     try:
-        output = subprocess.check_output(
-            "wmic path win32_VideoController get name", shell=True, text=True
-        )
-        output = output.lower()
+        if platform.system() == "Windows":
+            output = subprocess.check_output(
+                "wmic path win32_VideoController get name", shell=True, text=True
+            ).lower()
+        else:
+            output = subprocess.check_output("lspci | grep -i vga", shell=True, text=True).lower()
+            
         if "nvidia" in output: return "nvidia"
         elif "amd" in output or "radeon" in output: return "amd"
         elif "intel" in output: return "intel"
@@ -66,12 +70,16 @@ def get_file_size_mb(path):
         return 0.0
 
 def process_file(file_path, input_anchor, temp_dir, gpu, quality, log_csv_path, force_cpu=False):
-    # Calcula o caminho de saída limpo e espelhado
     rel_path = file_path.relative_to(input_anchor)
     clean_parts = [sanitize_name(p) for p in rel_path.parent.parts]
     clean_filename = f"{sanitize_name(file_path.stem)}.mkv"
     
-    out_dir = input_anchor / "Convertidos" / Path(*clean_parts)
+    if platform.system() == "Windows":
+        base_out = input_anchor / "Convertidos"
+    else:
+        base_out = Path.home() / "Convertidos"
+        
+    out_dir = base_out / Path(*clean_parts)
     out_dir.mkdir(parents=True, exist_ok=True)
     
     final_dest = out_dir / clean_filename

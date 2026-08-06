@@ -79,7 +79,9 @@ def main():
                     gb_size = data['avc_size_mb'] / 1024
                     writer.writerow([fld, data['files'], data['hevc_files'], to_compress, f"{gb_size:.2f}"])
         elif is_md:
+            total_gb = sum(data['avc_size_mb'] for data in folders.values()) / 1024
             f.write(f"# Relatório de Oportunidades em {input_dir}\n\n")
+            f.write(f"> [!IMPORTANT]\n> 🚀 **Oportunidade Total de Ganho de Espaço: {total_gb:.2f} GB**\n\n")
             f.write("Abaixo estão as subpastas ordenadas pela maior oportunidade de compressão (tamanho desperdiçado).\n\n")
             for fld, data in sorted_folders:
                 if data['avc_size_mb'] > 0:
