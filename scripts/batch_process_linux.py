@@ -122,6 +122,14 @@ def process_file(file_path, temp_dir, delete_original=False):
     orig_size = file_path.stat().st_size / (1024*1024)
     new_size = encoded_temp.stat().st_size / (1024*1024)
     
+    if new_size >= orig_size:
+        print("  -> [ANTI-INCHAÇO] O arquivo H265 ficou MAIOR que o original H264!")
+        print("  -> Descartando a conversão para economizar espaço e mantendo o original intacto.")
+        encoded_temp.unlink()
+        mins, secs = divmod(elapsed, 60)
+        print(f"  [DESCARTADO] Tempo desperdiçado: {int(mins)}m {int(secs)}s | Tamanho: {orig_size:.1f}MB -> {new_size:.1f}MB")
+        return True
+
     print("  -> Finalizando arquivo convertido...")
     encoded_temp.rename(final_dest)
     
