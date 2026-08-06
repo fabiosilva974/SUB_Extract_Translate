@@ -8,6 +8,7 @@ import platform
 import csv
 import re
 from pathlib import Path
+from datetime import datetime
 
 try:
     from guessit import guessit
@@ -110,7 +111,7 @@ def get_video_metadata(file_path):
         result = subprocess.run(cmd, capture_output=True, check=True)
         data = json.loads(result.stdout.decode('utf-8', errors='replace'))
     except Exception:
-        return None, False
+        return None, False, None
     
     width = None
     is_hevc = False
@@ -121,15 +122,25 @@ def get_video_metadata(file_path):
                 is_hevc = True
             break
             
-    return width, is_hevc
+    duration = None
+    try:
+        if 'format' in data and 'duration' in data['format']:
+            duration = float(data['format']['duration'])
+    except Exception:
+        pass
+            
+    return width, is_hevc, duration
 
-def encode_video(input_path, output_path, gpu):
+def encode_video(input_path, output_path, gpu, duration_secs):
     command = ["ffmpeg", "-y"]
     
     if gpu == "nvidia":
         command.extend(["-hwaccel", "cuda"])
     elif gpu == "amd":
         command.extend(["-hwaccel", "dxva2"])
+        
+    # SILENCE FFMPEG SPAM AND ENABLE PROGRESS OUTPUT TO STDOUT
+    command.extend(["-v", "error", "-nostats", "-progress", "-"])
         
     command.extend(["-i", str(input_path)])
     
@@ -163,74 +174,123 @@ def encode_video(input_path, output_path, gpu):
     ])
     
     try:
-        subprocess.run(command, check=True)
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace')
+        
+        last_report_pct = -10
+        last_report_time = time.time()
+        current_fps = "0"
+        
+        for line in process.stdout:
+            if line.startswith("fps="):
+                current_fps = line.split("=")[1].strip()
+            elif line.startswith("out_time_us="):
+                try:
+                    val = line.split("=")[1].strip()
+                    if val.isdigit() or (val.startswith('-') and val[1:].isdigit()):
+                        out_time_us = int(val)
+                        if duration_secs and duration_secs > 0:
+                            pct = (out_time_us / 1_000_000) / duration_secs * 100
+                            # Imprime a cada 5% de progresso ou a cada 5 minutos
+                            if (pct - last_report_pct >= 5) or (time.time() - last_report_time > 300):
+                                print(f"    -> Progresso: {pct:.1f}% | Taxa: {current_fps} fps")
+                                last_report_pct = pct
+                                last_report_time = time.time()
+                                sys.stdout.flush()
+                except ValueError:
+                    pass
+                    
+        _, stderr = process.communicate()
+        if process.returncode != 0:
+            print(f"  [ERRO] FFmpeg falhou com código {process.returncode}")
+            if stderr.strip():
+                print(f"  [ERRO DETALHES] {stderr.strip()}")
+            return False
         return True
-    except subprocess.CalledProcessError:
+    except Exception as e:
+        print(f"  [ERRO] Falha ao executar FFmpeg: {e}")
         return False
 
-def process_file(file_path, delete_original, os_name, gpu):
+def process_file(file_path, delete_original, os_name, gpu, index, total):
     lock_file = file_path.with_suffix(file_path.suffix + ".lock")
     
     # 1. VERIFICAÇÃO DE LOCK (CONCORRÊNCIA)
     if lock_file.exists():
-        print(f"\n[{file_path.name}] [LOCK] Outra máquina está processando. Pulando...")
-        return
+        print(f"\n[{index}/{total}] [{file_path.name}] [LOCK] Outra máquina está processando. Pulando...")
+        sys.stdout.flush()
+        return 0, 0
         
     # 2. TENTA CRIAR O LOCK (Exclusão Mútua)
     try:
         lock_file.touch(exist_ok=False)
     except FileExistsError:
-        print(f"\n[{file_path.name}] [LOCK] Outra máquina pegou no mesmo milissegundo. Pulando...")
-        return
+        print(f"\n[{index}/{total}] [{file_path.name}] [LOCK] Outra máquina pegou no mesmo milissegundo. Pulando...")
+        sys.stdout.flush()
+        return 0, 0
     except Exception as e:
-        print(f"\n[{file_path.name}] Erro ao criar lock: {e}")
-        return
+        print(f"\n[{index}/{total}] [{file_path.name}] Erro ao criar lock: {e}")
+        sys.stdout.flush()
+        return 0, 0
 
     try:
-        print(f"\n[{file_path.name}] Iniciando processamento ({os_name})...")
+        orig_mb = file_path.stat().st_size / (1024 * 1024) if file_path.exists() else 0
         
-        width, is_hevc = get_video_metadata(file_path)
+        start_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n=======================================================")
+        print(f"[{start_time_str}] [{index}/{total}] Iniciando processamento ({os_name}):")
+        sys.stdout.flush()
+        
+        width, is_hevc, duration = get_video_metadata(file_path)
         
         if width is None:
             print("  [ERRO] Não foi possível ler metadados. Vídeo corrompido?")
-            return
+            return orig_mb, orig_mb
             
         new_name = generate_new_name(file_path, width)
-        print(f"  -> Nome final: {new_name}")
+        final_dest = file_path.parent / new_name
+        
+        print(f"  -> Entrada: {file_path}")
+        print(f"  -> Saída:   {final_dest}")
+        if duration:
+            mins, secs = divmod(duration, 60)
+            print(f"  -> Duração: {int(mins)}m {int(secs)}s | Tamanho: {orig_mb:.1f} MB")
+        sys.stdout.flush()
         
         final_dest = file_path.parent / new_name
         
         if final_dest.exists() or (file_path.name == new_name and is_hevc):
             print("  -> O arquivo final já existe ou já está no padrão. Pulando.")
-            if delete_original and file_path.name != new_name:
+            if delete_original and file_path.name != new_name and file_path.exists():
                 print("  -> Deletando original obsoleto...")
                 file_path.unlink()
-            return
+            final_mb = final_dest.stat().st_size / (1024*1024) if final_dest.exists() else orig_mb
+            return orig_mb, final_mb
             
         # Manter a extensão no final para o FFmpeg entender o formato (ex: _part_Filme.mkv)
         encoded_temp = file_path.parent / f"_part_{new_name}"
         
         print(f"  -> Convertendo para HEVC ({gpu.upper()}) pela rede...")
+        sys.stdout.flush()
         start_time = time.time()
-        success = encode_video(file_path, encoded_temp, gpu)
+        success = encode_video(file_path, encoded_temp, gpu, duration)
         elapsed = time.time() - start_time
         
         if not success or not encoded_temp.exists():
             print("  [ERRO] A conversão falhou!")
             if encoded_temp.exists(): encoded_temp.unlink()
-            return
+            return orig_mb, orig_mb
             
         # 3. VERIFICAÇÃO ANTI-INCHAÇO
         orig_size = file_path.stat().st_size / (1024*1024)
         new_size = encoded_temp.stat().st_size / (1024*1024)
         
-        if new_size >= orig_size:
+        if new_mb >= orig_mb:
             print("  -> [ANTI-INCHAÇO] Arquivo novo ficou MAIOR que o original H264!")
             print("  -> Descartando a conversão para economizar espaço.")
             encoded_temp.unlink()
             mins, secs = divmod(elapsed, 60)
-            print(f"  [DESCARTADO] Tempo desperdiçado: {int(mins)}m {int(secs)}s | {orig_size:.1f}MB -> {new_size:.1f}MB")
-            return
+            end_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print(f"  [{end_time_str}] [DESCARTADO] Tempo desperdiçado: {int(mins)}m {int(secs)}s | {orig_mb:.1f}MB -> {new_mb:.1f}MB")
+            return orig_mb, orig_mb
             
         print("  -> Finalizando...")
         encoded_temp.rename(final_dest)
@@ -242,7 +302,10 @@ def process_file(file_path, delete_original, os_name, gpu):
             print("  -> Mantendo original no NAS (Fase 1 - QA).")
             
         mins, secs = divmod(elapsed, 60)
-        print(f"  [CONCLUÍDO] Tempo: {int(mins)}m {int(secs)}s | {orig_size:.1f}MB -> {new_size:.1f}MB")
+        end_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"  [{end_time_str}] [CONCLUÍDO] Tempo Total: {int(mins)}m {int(secs)}s | {orig_mb:.1f}MB -> {new_mb:.1f}MB")
+        
+        return orig_mb, new_mb
         
     finally:
         # GARANTIA DE LIMPEZA: Sempre deleta o arquivo de trava, ocorra sucesso ou erro
@@ -276,9 +339,40 @@ def main():
                     path_str = translate_path(path_str, os_name)
                     to_process.append(path_str)
                     
-        print(f"Encontrados {len(to_process)} vídeos para conversão paralela.")
+        initial_bytes = 0
         for path_str in to_process:
-            process_file(Path(path_str), args.delete, os_name, gpu)
+            p = Path(path_str)
+            if p.exists():
+                initial_bytes += p.stat().st_size
+                
+        initial_gb = initial_bytes / (1024**3)
+        
+        batch_start_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[{batch_start_str}] Encontrados {len(to_process)} vídeos para conversão paralela.")
+        print(f"-> Volume Total Inicial da Fila: {initial_gb:.2f} GB")
+        sys.stdout.flush()
+        
+        total_videos = len(to_process)
+        total_orig_mb = 0
+        total_new_mb = 0
+        
+        for i, path_str in enumerate(to_process, start=1):
+            o_mb, n_mb = process_file(Path(path_str), args.delete, os_name, gpu, i, total_videos)
+            total_orig_mb += o_mb
+            total_new_mb += n_mb
+            
+        batch_end_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        total_orig_gb = total_orig_mb / 1024
+        total_new_gb = total_new_mb / 1024
+        economia_gb = total_orig_gb - total_new_gb
+        
+        print("\n=======================================================")
+        print(f"[{batch_end_str}] Processamento em lote concluído!")
+        print(f"-> Volume Inicial Total (Processado): {total_orig_gb:.2f} GB")
+        print(f"-> Volume Final Total   (Processado): {total_new_gb:.2f} GB")
+        print(f"-> Espaço Economizado               : {economia_gb:.2f} GB")
+        sys.stdout.flush()
             
     except Exception as e:
         print(f"Erro ao ler CSV: {e}")
