@@ -16,21 +16,18 @@ except ImportError:
     exit(1)
 
 def detect_environment():
-    """Detecta o sistema operacional e a placa de vídeo suportada pelo FFmpeg."""
+    """Detecta o sistema operacional e a placa de vídeo do servidor atual."""
     os_name = platform.system()
     gpu = "cpu"
-    try:
-        res = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, check=True)
-        hw = res.stdout.lower()
-        if "cuda" in hw or "nvenc" in hw:
-            gpu = "nvidia"
-        elif "amf" in hw or "d3d11va" in hw or "dxva2" in hw:
-            gpu = "amd"
-    except Exception:
-        pass
+    
+    # Mapeamento Direto Baseado na Infra do Usuário
+    if os_name == "Linux":
+        gpu = "nvidia"
+    elif os_name == "Windows":
+        gpu = "amd"
         
     print(f"[INFO] Sistema Operacional: {os_name}")
-    print(f"[INFO] Hardware de Aceleração Detectado: {gpu.upper()}")
+    print(f"[INFO] Hardware de Aceleração Destinado: {gpu.upper()}")
     return os_name, gpu
 
 def translate_path(path_str, os_name):
@@ -262,12 +259,12 @@ def main():
     os_name, gpu = detect_environment()
         
     try:
-        with open(args.csv, newline='', encoding='utf-8') as f:
-            reader = csv.DictReader(f)
+        with open(args.csv, newline='', encoding='utf-8-sig') as f:
+            reader = csv.DictReader(f, delimiter=';')
             to_process = []
             for row in reader:
                 if args.all or row.get('Lote_Piloto') == 'SIM':
-                    path_str = row['Original_Path']
+                    path_str = row['Caminho_Completo_Original']
                     path_str = translate_path(path_str, os_name)
                     to_process.append(path_str)
                     
