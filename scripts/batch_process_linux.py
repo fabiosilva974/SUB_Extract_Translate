@@ -73,11 +73,17 @@ def encode_video(input_path, output_path, quality=26):
     ]
     
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8')
+    log_output = []
     for line in process.stdout:
+        log_output.append(line)
         if "frame=" in line or "time=" in line:
             print(f"\r{line.strip()}", end="")
     process.wait()
     print()
+    if process.returncode != 0:
+        print("\n=== LOG DE ERRO DO FFMPEG ===")
+        print("".join(log_output[-15:])) # Imprime as ultimas 15 linhas
+        print("=============================\n")
     return process.returncode == 0
 
 def process_file(file_path, temp_dir, delete_original=False):
