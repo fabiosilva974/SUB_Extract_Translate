@@ -124,18 +124,23 @@ def get_video_metadata(file_path):
     return width, is_hevc
 
 def encode_video(input_path, output_path, gpu):
-    command = ["ffmpeg", "-y", "-i", str(input_path)]
+    command = ["ffmpeg", "-y"]
+    
+    if gpu == "nvidia":
+        command.extend(["-hwaccel", "cuda"])
+    elif gpu == "amd":
+        command.extend(["-hwaccel", "dxva2"])
+        
+    command.extend(["-i", str(input_path)])
     
     if gpu == "nvidia":
         command.extend([
-            "-hwaccel", "cuda",
             "-c:v", "hevc_nvenc",
             "-cq", "25",
             "-preset", "p4"
         ])
     elif gpu == "amd":
         command.extend([
-            "-hwaccel", "dxva2",
             "-c:v", "hevc_amf",
             "-rc", "cqp",
             "-qp_i", "26",
@@ -152,7 +157,6 @@ def encode_video(input_path, output_path, gpu):
     command.extend([
         "-c:a", "copy",
         "-c:s", "copy",
-        "-c:t", "copy",
         "-disposition:s", "0",
         "-disposition:s:m:language:por", "default",
         str(output_path)
