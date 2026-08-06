@@ -280,8 +280,7 @@ def process_file(file_path, delete_original, os_name, gpu, index, total):
             return orig_mb, orig_mb
             
         # 3. VERIFICAÇÃO ANTI-INCHAÇO
-        orig_size = file_path.stat().st_size / (1024*1024)
-        new_size = encoded_temp.stat().st_size / (1024*1024)
+        new_mb = encoded_temp.stat().st_size / (1024*1024)
         
         if new_mb >= orig_mb:
             print("  -> [ANTI-INCHAÇO] Arquivo novo ficou MAIOR que o original H264!")
