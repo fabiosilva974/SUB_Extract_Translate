@@ -100,32 +100,23 @@ def process_file(file_path, temp_dir, delete_original=False):
     print(f"\n[{file_path.name}] Iniciando processamento...")
     print(f"  -> Nome final será: {new_name}")
     
-    temp_file = temp_dir / file_path.name
-    
-    print("  -> Copiando arquivo para o SSD local (TEMP)...")
-    shutil.copy2(file_path, temp_file)
-    
-    encoded_temp = temp_dir / new_name
+    encoded_temp = file_path.parent / (new_name + ".part")
     
     start_time = time.time()
-    print("  -> Convertendo para HEVC (NVENC)...")
-    success = encode_video(temp_file, encoded_temp)
+    print("  -> Lendo do NAS e convertendo para HEVC (NVENC) diretamente na rede...")
+    success = encode_video(file_path, encoded_temp)
     elapsed = time.time() - start_time
     
     if not success or not encoded_temp.exists():
         print("  [ERRO] A conversão falhou!")
-        if temp_file.exists(): temp_file.unlink()
         if encoded_temp.exists(): encoded_temp.unlink()
         return False
         
-    orig_size = temp_file.stat().st_size / (1024*1024)
+    orig_size = file_path.stat().st_size / (1024*1024)
     new_size = encoded_temp.stat().st_size / (1024*1024)
     
-    print("  -> Movendo arquivo convertido de volta para o NAS...")
-    shutil.move(encoded_temp, final_dest)
-    
-    # Limpeza
-    temp_file.unlink()
+    print("  -> Finalizando arquivo convertido...")
+    encoded_temp.rename(final_dest)
     
     if delete_original:
         print("  -> Excluindo arquivo original no NAS...")
