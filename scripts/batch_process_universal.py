@@ -35,7 +35,7 @@ def translate_path(path_str, os_name):
     """Traduz o caminho da rede do CSV para a plataforma atual"""
     if os_name == "Linux":
         path_str = path_str.replace("\\\\192.168.0.99\\Media\\", "/mnt/Media/")
-        path_str = path_str.replace("U:\\", "/mnt/")
+        path_str = path_str.replace("U:\\", "/mnt/Media/")
         path_str = path_str.replace("\\", "/")
     elif os_name == "Windows":
         path_str = path_str.replace("/mnt/Media/", "\\\\192.168.0.99\\Media\\")
