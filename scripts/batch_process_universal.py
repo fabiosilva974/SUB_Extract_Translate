@@ -166,6 +166,7 @@ def encode_video(input_path, output_path, gpu, duration_secs):
         ])
         
     command.extend([
+        "-map", "0",
         "-c:a", "copy",
         "-c:s", "copy",
         "-disposition:s", "0",
