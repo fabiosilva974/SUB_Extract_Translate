@@ -147,7 +147,7 @@ def encode_video(input_path, output_path, gpu, duration_secs):
     if gpu == "nvidia":
         command.extend([
             "-c:v", "hevc_nvenc",
-            "-cq", "25",
+            "-cq", "27",
             "-preset", "p4"
         ])
     elif gpu == "amd":
