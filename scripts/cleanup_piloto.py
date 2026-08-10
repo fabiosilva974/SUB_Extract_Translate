@@ -16,8 +16,9 @@ def sanitize_title(title):
     return title.strip('.')
 
 def main():
-    csv_path = "scripts/test_map.csv"
-    if not os.path.exists(csv_path):
+    script_dir = Path(__file__).parent
+    csv_path = script_dir / "test_map.csv"
+    if not csv_path.exists():
         print(f"Erro: CSV não encontrado em {csv_path}")
         return
 
