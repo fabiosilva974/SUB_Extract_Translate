@@ -175,7 +175,7 @@ def encode_video(input_path, output_path, gpu, duration_secs):
     ])
     
     try:
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', errors='replace')
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1, encoding='utf-8', errors='replace')
         
         last_report_pct = -10
         last_report_time = time.time()
@@ -351,19 +351,19 @@ def main():
         with open(args.csv, newline='', encoding='utf-8-sig') as f:
             reader = csv.DictReader(f, delimiter=';')
             to_process = []
+            initial_mb = 0
             for row in reader:
                 if args.all or row.get('Lote_Piloto') == 'SIM':
                     path_str = row['Caminho_Completo_Original']
                     path_str = translate_path(path_str, os_name)
                     to_process.append(path_str)
-                    
-        initial_bytes = 0
-        for path_str in to_process:
-            p = Path(path_str)
-            if p.exists():
-                initial_bytes += p.stat().st_size
-                
-        initial_gb = initial_bytes / (1024**3)
+                    try:
+                        size_str = row.get('Tamanho_MB', '0').replace(',', '.')
+                        initial_mb += float(size_str)
+                    except:
+                        pass
+                        
+        initial_gb = initial_mb / 1024
         
         batch_start_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[{batch_start_str}] Encontrados {len(to_process)} vídeos para conversão paralela.")
