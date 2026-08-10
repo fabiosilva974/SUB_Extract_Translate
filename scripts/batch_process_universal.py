@@ -257,6 +257,7 @@ def process_file(file_path, delete_original, os_name, gpu, index, total):
         sys.stdout.flush()
         
         final_dest = file_path.parent / new_name
+        final_dest_h264 = file_path.parent / new_name.replace("H265", "H264")
         
         if final_dest.exists() or (file_path.name == new_name and is_hevc):
             print("  -> O arquivo final já existe ou já está no padrão. Pulando.")
@@ -264,6 +265,14 @@ def process_file(file_path, delete_original, os_name, gpu, index, total):
                 print("  -> Deletando original obsoleto...")
                 file_path.unlink()
             final_mb = final_dest.stat().st_size / (1024*1024) if final_dest.exists() else orig_mb
+            return orig_mb, final_mb
+            
+        if final_dest_h264.exists() or (file_path.name == final_dest_h264.name and not is_hevc):
+            print("  -> Arquivo padronizado em H264 já existe (foi descartado pelo anti-inchaço). Pulando.")
+            if delete_original and file_path.name != final_dest_h264.name and file_path.exists():
+                print("  -> Deletando original obsoleto...")
+                file_path.unlink()
+            final_mb = final_dest_h264.stat().st_size / (1024*1024) if final_dest_h264.exists() else orig_mb
             return orig_mb, final_mb
             
         # Manter a extensão no final para o FFmpeg entender o formato (ex: _part_Filme.mkv)
@@ -287,6 +296,15 @@ def process_file(file_path, delete_original, os_name, gpu, index, total):
             print("  -> [ANTI-INCHAÇO] Arquivo novo ficou MAIOR que o original H264!")
             print("  -> Descartando a conversão para economizar espaço.")
             encoded_temp.unlink()
+            
+            new_name_h264 = new_name.replace("H265", "H264")
+            if file_path.name != new_name_h264 and file_path.exists():
+                print(f"  -> Padronizando original para evitar retrabalho futuro: {new_name_h264}")
+                try:
+                    file_path.rename(file_path.parent / new_name_h264)
+                except Exception as e:
+                    print(f"  [ERRO] Falha ao renomear: {e}")
+                    
             mins, secs = divmod(elapsed, 60)
             end_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             print(f"  [{end_time_str}] [DESCARTADO] Tempo desperdiçado: {int(mins)}m {int(secs)}s | {orig_mb:.1f}MB -> {new_mb:.1f}MB")
