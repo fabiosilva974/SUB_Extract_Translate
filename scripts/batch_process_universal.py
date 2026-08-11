@@ -485,6 +485,15 @@ def process_file(file_path, delete_original, os_name, gpu, index, total):
             # Retorna estatísticas reais
             return orig_mb, final_mb
             
+        # Nova Condição de Bypass Rápido: Se o arquivo já está em formato perfeito (AV1/HEVC/VP9), mas apenas com o nome despadronizado
+        elif is_hevc and not final_dest.exists():
+            print("  -> O vídeo já possui codec de altíssima compactação (AV1/HEVC).")
+            print("  -> O nome original está fora do padrão. Efetuando renomeio físico instântaneo...")
+            import shutil
+            shutil.move(str(file_path), str(final_dest))
+            final_mb = final_dest.stat().st_size / (1024*1024)
+            return orig_mb, final_mb
+            
         # Segunda Condição de Bypass: O arquivo tentou ser convertido dias atrás e foi rejeitado pelo limitador de tamanho por ficar ruim/estourado (Foi salvo sob o nome H264 elegante e mantido no sistema, devendo ser ignorado por ser intratável sem loss massivo)
         if final_dest_h264.exists() or (file_path.name == final_dest_h264.name and not is_hevc):
             print("  -> Arquivo padronizado em H264 já existe (foi descartado pelo anti-inchaço). Pulando.")
