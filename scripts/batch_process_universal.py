@@ -122,9 +122,26 @@ def get_resolution_name(width):
     else: return "480p"
 
 # Função que usa guessit para gerar um nome padronizado para o arquivo de mídia
+
+def extract_int(value):
+    """Extract the first integer found in a string. Returns None if no integer present."""
+    import re
+    m = re.search(r"\d+", str(value))
+    return int(m.group()) if m else None
+
+
 def generate_new_name(original_path, width):
     # Usa guessit no nome base do arquivo (sem extensão) para extrair os metadados textuais
-    guess = guessit(original_path.name)
+    try:
+        guess = guessit(original_path.name)
+    except Exception:
+        import re
+        # Tenta sanitizar casos como '25v2' que quebram a extração de int() interna do guessit
+        safe_name = re.sub(r'(?<=\d)v\d+', '', original_path.name)
+        try:
+            guess = guessit(safe_name)
+        except Exception:
+            guess = {}
     # Tenta extrair o título; se falhar, usa o nome do arquivo (stem = nome sem extensão)
     title = guess.get('title', original_path.stem)
     
@@ -182,22 +199,23 @@ def generate_new_name(original_path, width):
     if season is not None:
         # Se a temporada for uma lista (várias detectadas), pega apenas a primeira
         if isinstance(season, list): season = season[0]
-        # Formata a string de temporada no formato 'S01' (S acompanhado de número com 2 dígitos)
-        s_str = f"S{int(season):02d}"
-        # Se houver episódio correspondente
-        if episode is not None:
-            # Se for uma lista de episódios, pega apenas o primeiro
-            if isinstance(episode, list): episode = episode[0]
-            # Concatena o número do episódio ao padrão, gerando ex: 'S01E02'
-            s_str += f"E{int(episode):02d}"
-        # Adiciona o bloco Temporada/Episódio nas partes do nome
-        parts.append(s_str)
+        # Extrai número da temporada
+        season_num = extract_int(season)
+        if season_num is not None:
+            s_str = f"S{season_num:02d}"
+            # Se houver episódio correspondente
+            if episode is not None:
+                if isinstance(episode, list): episode = episode[0]
+                episode_num = extract_int(episode)
+                if episode_num is not None:
+                    s_str += f"E{episode_num:02d}"
+            parts.append(s_str)
     # Tratamento alternativo caso haja episódio mas nenhuma temporada (ex: Anime onde só enumera o eps)
     elif episode is not None:
-        # Pega o primeiro se for lista
         if isinstance(episode, list): episode = episode[0]
-        # Adiciona apenas o episódio na string (ex: 'E02')
-        parts.append(f"E{int(episode):02d}")
+        episode_num = extract_int(episode)
+        if episode_num is not None:
+            parts.append(f"E{episode_num:02d}")
         
     # Se a análise detectou um nome específico para o episódio da série
     if episode_title:

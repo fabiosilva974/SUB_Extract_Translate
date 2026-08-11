@@ -66,24 +66,29 @@ def get_video_metadata(file_path):
     return False
 
 # Definição da função que dispara o rolo compressor (FFmpeg) no arquivo alvo
-def encode_av1_to_hevc(input_path, output_path, quality=26):
+def encode_av1_to_hevc(input_path, output_path, gpu="nvidia", quality=26):
+    # Escolhe o codificador dependendo da marca da placa
+    if gpu.lower() == "amd":
+        encoder = "hevc_amf"
+        # AMD usa parâmetros de qualidade um pouco diferentes do NVENC
+        # Adicionado o filtro -pix_fmt yuv420p para evitar crash em GPUs AMD sem suporte a gravação 10-bit
+        extra_args = ["-rc", "vbr_peak", "-qp_p", str(quality), "-qp_i", str(quality), "-pix_fmt", "yuv420p"]
+    else:
+        encoder = "hevc_nvenc"
+        extra_args = ["-preset", "p7", "-tune", "hq", "-rc", "vbr", "-cq", str(quality), "-qmin", str(quality), "-qmax", str(quality)]
+
     # Monta a lista estruturada com todos os comandos mágicos para converter e manter compatibilidade
     cmd = [
         "ffmpeg", "-y",                # Invoca o FFmpeg passando a flag -y para sobrescrever sem perguntar
-        # ATENÇÃO: SEM o '-hwaccel cuda' aqui! A CPU deverá decodificar o complexo fluxo AV1 em hardware nativo
+        # ATENÇÃO: SEM hwaccel na entrada! A CPU deverá decodificar o complexo fluxo AV1 em hardware nativo
         "-i", str(input_path),         # Define o caminho do arquivo de origem que entrará no liquidificador
         "-map", "0",                   # Diz para puxar TODAS as trilhas (múltiplos áudios e legendas) do original
-        "-c:v", "hevc_nvenc",          # Mas a saída DE VÍDEO usará a poderosa placa de vídeo NVIDIA acelerada!
-        "-preset", "p7",               # Ajusta o Preset NVENC para o P7 (qualidade master final e compressão altíssima)
-        "-tune", "hq",                 # Diz que queremos a prioridade da NVIDIA 100% voltada para High Quality
-        "-rc", "vbr",                  # Usa Variable Bit Rate, alocando bits conforme a cena necessita no quadro a quadro
-        "-cq", str(quality),           # CQ = Constant Quality; Alvo matemático de fidelidade estipulado pela variável (padrão 26)
-        "-qmin", str(quality),         # Trava a qualidade mínima para ela nunca oscilar muito e dar blur
-        "-qmax", str(quality),         # Trava a qualidade máxima para não estourar a memória (CQ) travada
+        "-c:v", encoder,               # A saída DE VÍDEO usará a poderosa placa de vídeo escolhida
+    ] + extra_args + [
         "-c:a", "copy",                # Copia fielmente todas as trilhas de Áudio (ex: Flac do 07-Ghost ficará imaculado)
         "-c:s", "copy",                # Copia fielmente todas as Legendas PGS sem tocá-las
         "-f", "matroska",              # Obriga a saída a ser um envelopamento padrão Matroska (.MKV universal)
-        str(output_path)               # Aponta o destino final, que no nosso caso é a pasta TEMPORÁRIA (Linux)
+        str(output_path)               # Aponta o destino final, que no nosso caso é a pasta TEMPORÁRIA
     ]
     
     # Roda o FFmpeg anexando-o ao processo de forma contínua (para ler a saída em tempo real)
@@ -118,7 +123,7 @@ def encode_av1_to_hevc(input_path, output_path, quality=26):
     return process.returncode == 0
 
 # Função de Orquestração Mestra por arquivo (decide destinos, pastas e invoca o trabalhador)
-def process_file(file_path, temp_dir):
+def process_file(file_path, temp_dir, gpu="nvidia"):
     # Confere se o arquivo original realmente existe e o HD não desconectou do nada
     if not file_path.exists():
         # Se sumiu, aborta sem quebrar e retorna Falso
@@ -140,67 +145,50 @@ def process_file(file_path, temp_dir):
     # Tratamento anti-vírgulas estranhas (exemplo: ficar com dois pontos na string após cortar AV1)
     while ".." in new_name: new_name = new_name.replace("..", ".")
     
-    # Destino real no HD do projeto final onde o arquivo descansará para sempre
+    # Destino real no HD onde o arquivo final ficará
     final_dest = file_path.parent / new_name
-    # Caminho temporário super rápido (Ex: NVMe do Linux) para receber os fragmentos do arquivo pela rede
-    encoded_temp = temp_dir / (new_name + ".part")
-    
-    # Adereços visuais do console printando a interface de trabalho do vídeo
+    # Usa o próprio destino como caminho de saída (sem .part temporário)
+    output_path = final_dest
+
     print(f"\n{'='*50}")
-    print(f"🎬 Iniciando Conversão de Compatibilidade (AV1 -> H265)")
-    # Expõe nome antigo original
+    print("[ START ] Iniciando Conversão de Compatibilidade (AV1 -> H265)")
     print(f" Arquivo: {file_path.name}")
-    # Expõe o nome glorioso e purificado
     print(f" Saída:   {new_name}")
+    print(f" Hardware: Aceleração {gpu.upper()}")
     print(f"{'='*50}")
-    
-    # Marca exatamente o milissegundo de início para fazer cálculo de duração no fim
+
     start_time = time.time()
-    
-    # Invoca o trator de conversão e passa pro HD temporário! O script parará aqui até acabar
-    success = encode_av1_to_hevc(file_path, encoded_temp)
-    # Depois que acabar (horas depois), calcula subtraindo o tempo atual do tempo gravado
-    elapsed = time.time() - start_time
-    
-    # Se a flag de sucesso vier quebrada ou, pelo amor de Deus, o arquivo físico não existir na pasta Temporária
-    if not success or not encoded_temp.exists():
-        # Avisa que houve corrupção gravíssima e o ffmpeg pode ter fritado
-        print(" [ERRO CRÍTICO] A conversão do AV1 falhou!")
-        # Se por algum milagre existir sobras (.part) corrompidas no diretório, DELETA
-        if encoded_temp.exists(): encoded_temp.unlink()
-        # Aborta pulando e retornando fracasso
+
+    # Cria lock
+    lock_path = file_path.with_suffix('.lock')
+    if lock_path.exists():
+        print(f"[WARN] Lock existente para {file_path.name}. Pulando.")
         return False
-        
-    # Calcula e joga pra Megabytes absolutos o tamanho exato do seu arquivo velhinho
+    lock_path.touch()
+    try:
+        # Converte diretamente para o arquivo de destino
+        success = encode_av1_to_hevc(file_path, output_path, gpu=gpu)
+    finally:
+        if lock_path.exists():
+            lock_path.unlink()
+    elapsed = time.time() - start_time
+
+    if not success or not final_dest.exists():
+        print(" [ERRO CRÍTICO] A conversão do AV1 falhou!")
+        if final_dest.exists():
+            final_dest.unlink()
+        return False
+
     orig_size = file_path.stat().st_size / (1024*1024)
-    # Calcula e joga pra Megabytes o peso final que a conversão NVENC produziu!
-    new_size = encoded_temp.stat().st_size / (1024*1024)
-    
-    # Adorno feliz comemorando o processamento NVENC CPU com Sucesso
-    print(f"\n ✅ Conversão Finalizada com Sucesso!")
-    # Comunica para a interface que a fase dolorosa do Samba de rede começou
-    print(f" -> Movendo arquivo da pasta temporária para o NAS...")
-    
-    # Arranca brutalmente o vídeo finalizado do SSD do Linux e copia fielmente para as entranhas do HD do Windows
-    shutil.move(str(encoded_temp), str(final_dest))
-    
-    # Puxa os minutos e segundos perfeitos isolados pela matemática da duração total em Segundos
-    mins, secs = divmod(elapsed, 60)
-    # Mostra a duração formatadinha
-    print(f" -> Duração: {int(mins)}m {int(secs)}s")
-    # Mostra o peso: AVISO: É normal o da direita ficar mais gordo, pois H265 exige mais bits que o moderno AV1
+    new_size = final_dest.stat().st_size / (1024*1024)
+
+    print("\n [ OK ] Conversão Finalizada com Sucesso!")
+    print(f" -> Duração: {int(elapsed//60)}m {int(elapsed%60)}s")
     print(f" -> Tamanho: {orig_size:.1f}MB (AV1) ---> {new_size:.1f}MB (H265)")
-    
-    # Avaliação: Se mesmo assim a nova cria engordou o HD
     if new_size > orig_size:
-        # Avisa de forma benevolente, sem estresse, pois a compatibilidade é o sacrifício!
         print(" ⚠️ Nota: Como esperado, o arquivo H265 ficou MAIOR que o AV1 original.")
-        
-    # Finalização amigável de notificação
-    print(f"\n Tudo certo! O arquivo original AINDA ESTÁ na pasta por segurança.")
-    # Alerta o usuário para fazer o Test-Drive no Player que travava antes de mandar o AV1 original pro Lixo!
+    print("\n Tudo certo! O arquivo original AINDA ESTÁ na pasta por segurança.")
     print(f" Verifique se {new_name} está rodando perfeitamente antes de deletar o original.")
-    # Dá a benção de sucesso ao fluxo global de chamada
     return True
 
 # Função principal (ponto de ignição padrão em Scripts Profissionais Python)
@@ -208,9 +196,11 @@ def main():
     # Prepara um módulo avançado de interpretação para as flags do console do usuário Linux
     parser = argparse.ArgumentParser(description="Conversor Dedicado: AV1 para H265 (Compatibilidade)")
     # Adiciona a obrigação do usuário de fornecer OBRIGATORIAMENTE um caminho (Diretório ou MKV exato)
-    parser.add_argument("target", help="Arquivo .mkv específico ou pasta inteira (ex: U:\Anime-Cartoon)")
+    parser.add_argument("target", help=r"Arquivo .mkv específico ou pasta inteira (ex: U:\Anime-Cartoon)")
     # Prepara uma pasta de manuseio temporária no NVMe do Linux como salvaguarda super-rápida de leitura IOPS
     parser.add_argument("--temp", default=r"/home/conversor/TEMP", help="Diretório temporário (Linux/WSL)")
+    # Adiciona flag de placa de vídeo
+    parser.add_argument("--gpu", default="nvidia", choices=["nvidia", "amd"], help="Qual placa usar? 'nvidia' (NVENC) ou 'amd' (AMF)")
     # Consolida os atributos que o usuário digitou
     args = parser.parse_args()
     
@@ -221,10 +211,12 @@ def main():
     # Garante firmemente que o diretório temp exista, senão, constrói-o brutalmente agora
     temp_dir.mkdir(parents=True, exist_ok=True)
     
+    gpu_choice = args.gpu.lower()
+    
     # Avalia a raiz fornecida pelo usuário: Se for um arquivo isolado (.MKV, .MP4, etc)
     if target.is_file():
         # Dispara o executor focado na precisão cirúrgica de UM ALVO
-        process_file(target, temp_dir)
+        process_file(target, temp_dir, gpu=gpu_choice)
     # Senão, avalia se é a raiz enorme de uma árvore (A pasta inteirona)
     elif target.is_dir():
         # Anuncia ao mundo que a varredura começou
@@ -242,7 +234,7 @@ def main():
                     # Escaneamento ultra-focado e raso pra saber a real identidade AV1 sem perder século em parsing pesado
                     if get_video_metadata(file_path):
                         # Grita pra trabalhar se a flag AV1 brilhar True
-                        process_file(file_path, temp_dir)
+                        process_file(file_path, temp_dir, gpu=gpu_choice)
                         # Soma mais 1 abate no cartel da pasta
                         encontrados += 1
         # Se depois do arrastão terminar os arquivos AV1 = 0
