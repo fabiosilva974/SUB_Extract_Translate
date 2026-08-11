@@ -26,5 +26,10 @@ fi
 # Aplica a velocidade no display :1
 DISPLAY=:1 nvidia-settings -a "[gpu:0]/GPUFanControlState=1" -a "[fan:0]/GPUTargetFanSpeed=$FAN" > /dev/null 2>&1
 
-# Log opcional para você acompanhar se rodar na mão
-echo "Temp atual: ${TEMP}°C -> Ventoinha ajustada para: ${FAN}%"
+# Captura a data e hora atual
+DATA_HORA=$(date '+%Y-%m-%d %H:%M:%S')
+
+# Log opcional para você acompanhar se rodar na mão e salvando em um arquivo
+LOG_MSG="[$DATA_HORA] Temp atual: ${TEMP}°C -> Ventoinha ajustada para: ${FAN}%"
+echo "$LOG_MSG"
+echo "$LOG_MSG" >> "$(dirname "$0")/fan_control.log"
