@@ -60,8 +60,8 @@ def get_video_metadata(file_path):
         if stream.get("codec_type") == "video":
             # Guarda se for a primeira trilha de vídeo
             if not width: width = stream.get("width")
-            # Flag booleana se a string bater com os padroes
-            if codec_name in ("hevc", "h265", "x265"): is_hevc = True
+            # Avalia se a flag de codec e a desejada ou nova geracao
+            if codec_name in ("hevc", "h265", "x265", "av1", "vp9"): is_hevc = True
     # Retorna dimensoes e flag
     return width, is_hevc
 

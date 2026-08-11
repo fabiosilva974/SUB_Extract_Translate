@@ -243,8 +243,9 @@ def get_video_metadata(file_path):
         if stream.get('codec_type') == 'video':
             # Obtém a largura da faixa de vídeo e guarda na variável
             width = stream.get('width')
-            # Verifica se o codec atual do vídeo já é hevc/h265
-            if stream.get('codec_name') in ['hevc', 'h265']:
+            # Checagem contra codecs de altíssima compactação (HEVC e nova geração)
+            codec_name = stream.get('codec_name')
+            if codec_name in ("hevc", "h265", "x265", "av1", "vp9"):
                 # Marca a flag indicando que o vídeo já está comprimido no formato ideal
                 is_hevc = True
             # Encerra o laço pois achou o vídeo (ignora outros possíveis streams de imagem extras)

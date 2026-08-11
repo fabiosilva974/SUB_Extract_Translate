@@ -71,8 +71,8 @@ def get_video_metadata(file_path):
             # Guarda se o motor falhou em trazer (nao regrava em cima de stream secundario como miniatura)
             if not width:
                 width = stream.get("width")
-            # Testa nome amigavel contra lista restrita 
-            if codec_name in ("hevc", "h265", "x265"):
+            # Detecta nomeclaturas variantes de H.265, H265, HEVC ou nova geração
+            if codec_name in ("hevc", "h265", "x265", "av1", "vp9"):
                 is_hevc = True
                 
     # Return Tupla

@@ -67,8 +67,8 @@ def get_video_metadata(file_path):
         if stream.get("codec_type") == "video":
             # Extrai a largura da primeira faixa de vídeo encontrada
             if not width: width = stream.get("width")
-            # Verifica se o codec bate com as nomenclaturas conhecidas do HEVC/H.265
-            if codec in ("hevc", "h265", "x265"): is_hevc = True
+            # Verifica se o codec bate com as nomenclaturas conhecidas do HEVC/H.265 ou os modernos AV1/VP9
+            if codec in ("hevc", "h265", "x265", "av1", "vp9"): is_hevc = True
     # Retorna largura e status do codec
     return width, is_hevc
 
